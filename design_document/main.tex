@@ -1,0 +1,146 @@
+\documentclass[12pt, letterpaper]{article}
+\usepackage{graphicx}
+\usepackage[table]{xcolor}
+\usepackage{array,booktabs,ragged2e}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\graphicspath{{images/}}
+
+\title{\textbf{Game Design Document}}
+\author{Elicatza}
+\date{July 2024}
+
+\newcolumntype{R}[1]{>{\RaggedLeft\arraybackslash}p{#1}}
+\setcounter{secnumdepth}{0}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\section{Introduction}
+
+My submission for the 
+\href{https://itch.io/jam/pirate}{Pirate Software game jam 2024}.
+
+\subsection{Summary}
+Cube managing internal alchemy in a puzzling and shadowy world.
+
+\subsection{Theme interpretation}
+
+The themes are \textit{Alchemy and Shadows}. I'm choosing to interpret alchemy
+in the direction of transformations. Specifically gender transformations and
+changes in internal alchemy. Aesthetically will display a more literal
+interpretation of alchemy.
+
+Possibly the Taoist use of alchemy to attain immortality with focus on
+spirituality.
+
+In regards to shadows, forceful isolation --- an undesired retreat from social
+life --- will be my interpretation. Contrast between light and dark will
+be employed with shadows to emphasise this effect.
+
+My hopes with shadows is to be able to showcase the turning point
+when isolation no longer remains sufficient. Like Zarathustra, there
+comes a time for sharing your blossoming soul.
+
+\subsection{Inspiration}
+
+Nietzsche, Laozi (Tao Te Ching), Spinoza.
+
+\subsection{Software}
+\begin{itemize}[itemsep=1pt]
+    \item Raylib C
+    \item Aseprite
+    \item NeoVim
+\end{itemize}
+
+\subsection{Target Audience}
+
+Myself
+
+\section{Concept}
+
+Once the theme is released:
+\begin{itemize}[itemsep=1pt]
+    \item Figure out which story to tell.
+    \item Create gameplay to aid story.
+    \item Use Aseprite to find artstyle.
+    \item I've never done audio before.
+\end{itemize}
+
+\subsection{Gameplay}
+
+Life is a puzzle. The gameplay should reflect that.
+From completing them, you gain an understanding of the world and
+therefore yourself.
+
+The player will be presented with several puzzles / actions. When completing
+tasks, the player learns how the character responds. Mostly bad. A pain and
+energy meter is what governs what actions are possible. You'll have to balance
+pain, energy and socialization. As a game maker I want the player to seek out
+socialization, which will progress the game, but causes fatigue and pain.
+Shadow and fatigue are equal. Pain represents all other ways of being hurt.
+
+Puzzles that improve health and energy, will be boring, but necessary to
+achieve development. Downtime like this should invoke the player to think. The
+actions that cause development hurts you. Very \textit{Tao Te Ching} if you
+will. Solving the mystery. Dying offers no way to replay (delete cookies to
+restart).
+
+\subsection{Mechanics}
+
+You are a cube. Glide around with arrow keys (wasd). Roll around with shift +
+arrow keys (wasd). Rolling causes pain. The ground will have different heights,
+forcing the player to roll. 
+
+During activities (puzzles), you'll have the additional ability to split the
+cube and causing pain. The other option is to mirror shape across line.
+
+There will be two (or more) gameplay modes utilizing these mechanics. In one
+you create shapes, in another you traverse area, getting shapes to holes. Splits
+that do not end in holes, hurt you.
+
+\subsection{Story}
+
+TODO
+
+\section{Art}
+
+TODO
+
+
+\section{Audio}
+
+TODO
+
+Don't have a microphone, nor software for creating music.
+I've heard silent films are all the rage, but I might have to look into
+\href{https://blog.archive.org/2022/01/01/welcoming-recorded-music-to-the-public-domain/}{public domain music}.
+
+\section{Roadmap}
+
+\bgroup
+\def\arraystretch{1.5}
+\begin{tabular}{ R{0.4cm} p{4cm} p{1.5cm} p{5.5cm} }
+\toprule
+\multicolumn{1}{l}{\textbf{\#}} & \textbf{Assignment} & \textbf{Date} & \textbf{Notes} \\ 
+\midrule
+1 & Write roadmap & 07-17 & Basic overview of steps \\
+2 & Write GDD & 07-17 & Figure out themes and content \\
+3 & Basic build & 07-18 & C + Emscripten + Raylib fun \\
+4 & Quick puzzle demo & TODO & Finalize gameplay \\
+5 & Puzzle file formats & TODO & This will be embedded \\
+6 & Design environment & TODO & Where the player moves \\
+7 & Environment format & TODO & Embedded file format \\
+
+X & Story & TODO & Write story \\
+X & Balancing & TODO & Give user ``good'' incentives \\
+X & UI & TODO & Start, pause, end \& status \\
+X & ART style & TODO & How should the game look? \\
+X & title & TODO & something something \\
+X & Submit & TODO & And we're off \\
+
+\bottomrule
+\end{tabular}
+\egroup
+
+\end{document}

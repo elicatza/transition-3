@@ -1,0 +1,7 @@
+design_document/*
+!design_document/main.tex
+!design_document/main.pdf
+vendor/*
+!vendor/include/
+build
+assets
