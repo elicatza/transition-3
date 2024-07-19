@@ -156,16 +156,54 @@ void move_square(Puzzle *p, Player *player, Direction dir)
     player->y = new_pos.y;
 }
 
+int players_cmp_ud(const void *a, const void *b)
+{
+    return ((Player *) a)->y - ((Player *) b)->y;
+}
+
+int players_cmp_du(const void *a, const void *b)
+{
+    return ((Player *) b)->y - ((Player *) a)->y;
+}
+
+int players_cmp_lr(const void *a, const void *b)
+{
+    return ((Player *) a)->x - ((Player *) b)->x;
+}
+
+int players_cmp_rl(const void *a, const void *b)
+{
+    return ((Player *) b)->x - ((Player *) a)->x;
+}
+
 void loop(void)
 {
-    Direction dir = IsKeyPressed(KEY_W) ? UP
-        : IsKeyPressed(KEY_A) ? LEFT
-        : IsKeyPressed(KEY_S) ? DOWN
-        : IsKeyPressed(KEY_D) ? RIGHT
-        : NONE;
-    size_t i;
-    for (i = 0; i < case_len(go.puzzle.player_case) && dir != NONE; ++i) {
-        move_square(&go.puzzle, &go.puzzle.player_case[i], dir);
+    Puzzle *p = &go.puzzle;
+
+    Direction dir;
+    __compar_fn_t cmp_fn = NULL;
+
+    if (IsKeyPressed(KEY_W)) {
+        dir = UP;
+        cmp_fn = players_cmp_ud;
+    } else if (IsKeyPressed(KEY_A)) {
+        dir = LEFT;
+        cmp_fn = players_cmp_lr;
+    } else if (IsKeyPressed(KEY_S)) {
+        dir = DOWN;
+        cmp_fn = players_cmp_du;
+    } else if (IsKeyPressed(KEY_D)) {
+        dir = RIGHT;
+        cmp_fn = players_cmp_rl;
+    } else {
+        dir = NONE;
+    }
+    if (dir != NONE) {
+        qsort(p->player_case, case_len(p->player_case), sizeof *(p->player_case), cmp_fn);
+        size_t i;
+        for (i = 0; i < case_len(go.puzzle.player_case); ++i) {
+            move_square(&go.puzzle, &go.puzzle.player_case[i], dir);
+        }
     }
 
     BeginDrawing();
@@ -300,6 +338,15 @@ void mirror_over_line(Puzzle *p, int button_id)
     float cell_width = p->rec.width / p->cols;
     if (btn.center.x == 0.f) {
         // Horizontal mirror
+        Vector2 mirrored = {
+            .x = p->player_case[0].x,
+            .y = (2 * btn.center.y) - p->player_case[0].y - 1,
+        };
+        if (mirrored.y < p->rec.height / cell_width) {
+            // In bound of puzzle
+            case_push(p->player_case, mirrored);
+            INFO("added new at %.0f, %.0f", mirrored.x, mirrored.y);
+        }
     } else if (btn.center.y == 0.f) {
         // Vertical mirror
         Vector2 mirrored = {

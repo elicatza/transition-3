@@ -14,4 +14,4 @@ assets: ./src/embed.c
 
 ./build/$(PROGRAMNAME): ./src/main.c
 	mkdir -p $(shell dirname $@)
-	cc -o $@ $^ -L./vendor/lib -l:libraylib.so -I./vendor/include -lm
+	cc -o $@ $^ -L./vendor/lib -l:libraylib.so -I./vendor/include -lm -g
