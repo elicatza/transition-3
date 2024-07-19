@@ -16,6 +16,8 @@
 #define WIDTH 800
 #define HEIGHT (WIDTH / ASPECT_RATIO)
 
+#define PUZZEL_BUTTON_SZ 0.25f
+
 typedef enum {
     MIRROR,
     SPLIT,
@@ -29,6 +31,10 @@ typedef struct {
 
 typedef Vector2 Player;
 
+/**
+ * All values are to be defined in world space
+ * Translations are done to convert to view space
+ */
 typedef struct {
     Player *player_case;
     size_t rows;
@@ -50,6 +56,8 @@ GO go = { 0 };
 void render(void);
 void render_puzzle(Puzzle *p);
 void fill_buttons(Puzzle *p);
+Button vs_button_of_ws(Puzzle *p, Button btn);
+Player vs_player_of_ws(Puzzle *p, Player player);
 
 int main(void)
 {
@@ -103,9 +111,6 @@ typedef enum {
     LEFT = KEY_A,
     RIGHT = KEY_D,
 } Direction;
-
-void puzzle_to_screen_space(Puzzle *p);
-
 
 // void move_square(Puzzle *p, Player player, Direction dir)
 // {
@@ -168,10 +173,10 @@ void fill_buttons(Puzzle *p)
     for (row = 1; row < p->rows; ++row) {
         Button btn = {
             .center = (Vector2) {
-                .x = p->rec.x,
-                .y = row * cell_width + p->rec.y,
+                .x = 0.f,
+                .y = row,
             },
-            .radius = 10.f,
+            .radius = PUZZEL_BUTTON_SZ,
             .kind = MIRROR,
         };
         case_push(p->button_case, btn);
@@ -184,10 +189,10 @@ void fill_buttons(Puzzle *p)
     for (col = 1; col < p->cols; ++col) {
         Button btn = {
             .center = (Vector2) {
-                .x = col * cell_width + p->rec.x,
-                .y = p->rec.y,
+                .x = col,
+                .y = 0.f,
             },
-            .radius = 10.f,
+            .radius = PUZZEL_BUTTON_SZ,
             .kind = MIRROR,
         };
         case_push(p->button_case, btn);
@@ -200,8 +205,10 @@ void fill_buttons(Puzzle *p)
 void render_buttons(Puzzle *p)
 {
     size_t i;
+    float cell_width = p->rec.width / p->cols;
     for (i = 0; i < case_len(p->button_case); ++i) {
-        DrawCircleV(p->button_case[i].center, p->button_case[i].radius, GREEN);
+        Button vs_btn = vs_button_of_ws(p, p->button_case[i]);
+        DrawCircleV(vs_btn.center, vs_btn.radius, GREEN);
     }
 }
 
@@ -224,14 +231,41 @@ bool in_circle(Vector2 center, float radius, Vector2 point)
 }
 
 /**
+ * Converts from button in world space to button in view space
+ */
+Button vs_button_of_ws(Puzzle *p, Button btn)
+{
+    float cell_width = p->rec.width / p->cols;
+    return (Button) {
+        .center = (Vector2) {
+            .x = btn.center.x * cell_width + p->rec.x,
+            .y = btn.center.y * cell_width + p->rec.y,
+        },
+        .radius = btn.radius * cell_width,
+        .kind = btn.kind,
+    };
+}
+
+Player vs_player_of_ws(Puzzle *p, Player player)
+{
+    float cell_width = p->rec.width / p->cols;
+    return (Player) {
+        .x = player.x * cell_width + p->rec.x,
+        .y = player.y * cell_width + p->rec.y,
+    };
+}
+
+/**
  * @return -1 if no match is found. Otherwise the index of hover button
  */
-int button_hover_id(Button *btn_case)
+int button_hover_id(Puzzle *p, Button *btn_case)
 {
     size_t i;
     Vector2 pos = GetMousePosition();
+    float cell_width = p->rec.width / p->cols;
     for (i = 0; i < case_len(btn_case); ++i) {
-        if (in_circle(btn_case[i].center, btn_case[i].radius, pos)) {
+        Button vs_button = vs_button_of_ws(p, btn_case[i]);
+        if (in_circle(vs_button.center, vs_button.radius, pos)) {
             return i;
         }
     }
@@ -246,9 +280,9 @@ void mirror_over_line(Puzzle *p, int button_id)
         .x = (btn.center.x - p->rec.x) / cell_width,
         .y = (btn.center.y - p->rec.y) / cell_width,
     };
-    if (btn.center.x == p->rec.x) {
+    if (btn.center.x == 0.f) {
         // Horizontal mirror
-    } else if (btn.center.y == p->rec.y) {
+    } else if (btn.center.y == 0.f) {
         // Vertical mirror
         Vector2 mirrored = {
             .x = (2 * btn_cen_grid.x) - p->player_case[0].x - 1,
@@ -274,11 +308,12 @@ void render_puzzle(Puzzle *p)
     fill_buttons(p);
 
     // TODO check for mouse movement first
-    int hover_id = button_hover_id(p->button_case);
+    int hover_id = button_hover_id(p, p->button_case);
     if (hover_id != -1) {
-        DrawCircleV(p->button_case[hover_id].center, 30.f, MAGENTA);
+        Button vs_btn = vs_button_of_ws(p, p->button_case[hover_id]);
+        DrawCircleV(vs_btn.center, 30.f, MAGENTA);
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-            DrawCircleV(p->button_case[hover_id].center, 50.f, MAGENTA);
+            DrawCircleV(vs_btn.center, 50.f, MAGENTA);
             mirror_over_line(p, hover_id);
         }
     }
@@ -321,11 +356,13 @@ void render_puzzle(Puzzle *p)
     }
 
 
+    // Draws player objects
     size_t i;
     for (i = 0; i < case_len(p->player_case); ++i) {
+        Vector2 vs_pos = vs_player_of_ws(p, p->player_case[i]);
         Rectangle player = {
-            .x = p->player_case[i].x * cell_width + p->rec.x,
-            .y = p->player_case[i].y * cell_width + p->rec.y,
+            .x = vs_pos.x,
+            .y = vs_pos.y,
             .width = cell_width,
             .height = cell_width,
         };
