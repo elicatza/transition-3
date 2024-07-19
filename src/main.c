@@ -115,31 +115,45 @@ typedef enum {
 
 void move_square(Puzzle *p, Player *player, Direction dir)
 {
+    // TODO play animation when can't move + when move
+    Vector2 new_pos = *player;
     switch (dir) {
         case UP: {
             if (player->y > 0) {
-                player->y -= 1;
-            } // TODO play animation?
+                new_pos.y += -1;
+            } else { return; }
         } break;
         case DOWN: {
-            if (player->y < p->rows - 1) {
-                player->y += 1;
-            } // TODO play animation?
+            if (player->y + 1 < p->rows) {
+                new_pos.y += 1;
+            } else { return; }
         } break;
         case LEFT: {
             if (player->x > 0) {
-                player->x -= 1;
-            } // TODO play animation?
+                new_pos.x += -1;
+            } else { return; }
         } break;
         case RIGHT: {
-            if (player->x < p->cols - 1) {
-                player->x += 1;
-            } // TODO play animation?
+            if (player->x + 1 < p->cols) {
+                new_pos.x += 1;
+            } else { return; }
         } break;
             default: {
             INFO("This function should not be run");
         } break;
     };
+
+    // Check collisions
+    size_t i;
+    for (i = 0; i < case_len(p->player_case); ++i) {
+        if ((int) new_pos.x + 0.5f == (int) p->player_case[i].x + 0.5f &&
+            (int) new_pos.y + 0.5f == (int) p->player_case[i].y + 0.5f) {
+            // Colliding with other object
+            return;
+        }
+    }
+    player->x = new_pos.x;
+    player->y = new_pos.y;
 }
 
 void loop(void)
@@ -210,6 +224,14 @@ void render_buttons(Puzzle *p)
         Button vs_btn = vs_button_of_ws(p, p->button_case[i]);
         DrawCircleV(vs_btn.center, vs_btn.radius, GREEN);
     }
+}
+
+Vector2 vec2d_add(Vector2 a, Vector2 b)
+{
+    return (Vector2) {
+        .x = a.x + b.x,
+        .y = a.y + b.y,
+    };
 }
 
 Vector2 vec2d_sub(Vector2 a, Vector2 b)
