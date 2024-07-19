@@ -1,10 +1,12 @@
 #include <raylib.h>
 #include <stdio.h>
 #include <math.h>
-#include <assert.h>
+
+#include "core.h"
 #include "../assets/heart.h"
 #define CASE_IMPLEMENTATION
 #include "case.h"
+
 
 #if defined(PLATFORM_WEB)
     #include <emscripten/emscripten.h>
@@ -25,8 +27,10 @@ typedef struct {
     ButtonKind kind;
 } Button;
 
+typedef Vector2 Player;
+
 typedef struct {
-    Vector2 *player_case;
+    Player *player_case;
     size_t rows;
     size_t cols;
     unsigned char *cells;
@@ -52,6 +56,7 @@ int main(void)
 
     int width = WIDTH;
     int height = HEIGHT;
+    SetConfigFlags(/* FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE | */ FLAG_MSAA_4X_HINT);
     InitWindow(width, height, "demo");
 
     Image heart_img = {
@@ -89,14 +94,60 @@ int main(void)
     return 0;
 }
 
+/**
+ * Can be cast from keys
+ */
+typedef enum {
+    UP = KEY_W,
+    DOWN = KEY_S,
+    LEFT = KEY_A,
+    RIGHT = KEY_D,
+} Direction;
+
+void puzzle_to_screen_space(Puzzle *p);
+
+
+// void move_square(Puzzle *p, Player player, Direction dir)
+// {
+//     switch (dir) {
+//         case UP: {
+//             if (player.y 
+//             player.y -= 1;
+//         } break;
+//         case DOWN: {
+//         } break;
+//         case LEFT: {
+//         } break;
+//         case RIGHT: {
+//         } break;
+//     };
+// }
+
 void render(void)
 {
     // TODO boundary check + animation feedback
-    assert(case_len(go.puzzle.player_case) > 0);
-    if (IsKeyPressed(KEY_W)) { go.puzzle.player_case[0].y -= 1; }
-    if (IsKeyPressed(KEY_A)) { go.puzzle.player_case[0].x -= 1; }
-    if (IsKeyPressed(KEY_S)) { go.puzzle.player_case[0].y += 1; }
-    if (IsKeyPressed(KEY_D)) { go.puzzle.player_case[0].x += 1; }
+    ASSERT(case_len(go.puzzle.player_case) > 0);
+    size_t i;
+    if (IsKeyPressed(KEY_W)) {
+        for (i = 0; i < case_len(go.puzzle.player_case); ++i) {
+            go.puzzle.player_case[i].y -= 1;
+        }
+    }
+    if (IsKeyPressed(KEY_A)) {
+        for (i = 0; i < case_len(go.puzzle.player_case); ++i) {
+			go.puzzle.player_case[i].x -= 1;
+        }
+	}
+    if (IsKeyPressed(KEY_S)) {
+        for (i = 0; i < case_len(go.puzzle.player_case); ++i) {
+			go.puzzle.player_case[i].y += 1;
+        }
+	}
+    if (IsKeyPressed(KEY_D)) {
+        for (i = 0; i < case_len(go.puzzle.player_case); ++i) {
+			go.puzzle.player_case[i].x += 1;
+        }
+	}
 
     BeginDrawing();
 
@@ -125,8 +176,8 @@ void fill_buttons(Puzzle *p)
         };
         case_push(p->button_case, btn);
 
-        btn.center.x = p->rec.x + p->rec.width;
-        case_push(p->button_case, btn);
+        // btn.center.x = p->rec.x + p->rec.width;
+        // case_push(p->button_case, btn);
     }
 
     size_t col;
@@ -141,8 +192,8 @@ void fill_buttons(Puzzle *p)
         };
         case_push(p->button_case, btn);
 
-        btn.center.y = p->rec.y + p->rec.height;
-        case_push(p->button_case, btn);
+        // btn.center.y = p->rec.y + p->rec.height;
+        // case_push(p->button_case, btn);
     }
 }
 
@@ -187,11 +238,37 @@ int button_hover_id(Button *btn_case)
     return -1;
 }
 
+void mirror_over_line(Puzzle *p, int button_id)
+{
+    Button btn = p->button_case[button_id];
+    float cell_width = p->rec.width / p->cols;
+    Vector2 btn_cen_grid = {
+        .x = (btn.center.x - p->rec.x) / cell_width,
+        .y = (btn.center.y - p->rec.y) / cell_width,
+    };
+    if (btn.center.x == p->rec.x) {
+        // Horizontal mirror
+    } else if (btn.center.y == p->rec.y) {
+        // Vertical mirror
+        Vector2 mirrored = {
+            .x = (2 * btn_cen_grid.x) - p->player_case[0].x - 1,
+            .y = p->player_case[0].y,
+        };
+        if (mirrored.x < p->rec.width / cell_width) {
+            // In bound of puzzle
+            case_push(p->player_case, mirrored);
+            INFO("added new at %.0f, %.0f", mirrored.x, mirrored.y);
+        }
+    } else {
+        ASSERT(0, "Unreachable. invalid button position");
+    }
+}
+
 void render_puzzle(Puzzle *p)
 {
     int height = GetScreenHeight() - p->padding;
     int width = GetScreenWidth() - p->padding;
-    assert(width >= height);
+    ASSERT(width >= height);
     float cell_width = (float) height / p->cols;
 
     fill_buttons(p);
@@ -202,6 +279,7 @@ void render_puzzle(Puzzle *p)
         DrawCircleV(p->button_case[hover_id].center, 30.f, MAGENTA);
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             DrawCircleV(p->button_case[hover_id].center, 50.f, MAGENTA);
+            mirror_over_line(p, hover_id);
         }
     }
 
@@ -243,12 +321,16 @@ void render_puzzle(Puzzle *p)
     }
 
 
-    Rectangle player = {
-        .x = p->player_case[0].x * cell_width + p->rec.x,
-        .y = p->player_case[0].y * cell_width + p->rec.y,
-        .width = cell_width,
-        .height = cell_width,
-    };
-    DrawRectangleRec(player, PINK);
+    size_t i;
+    for (i = 0; i < case_len(p->player_case); ++i) {
+        Rectangle player = {
+            .x = p->player_case[i].x * cell_width + p->rec.x,
+            .y = p->player_case[i].y * cell_width + p->rec.y,
+            .width = cell_width,
+            .height = cell_width,
+        };
+        DrawRectangleRec(player, PINK);
+        // INFO("Drawing square %zu at %0.f, %0.f", i, player.x, player.y);
+    }
     render_buttons(p);
 }
