@@ -53,7 +53,7 @@ typedef struct {
 GO go = { 0 };
 
 
-void render(void);
+void loop(void);
 void render_puzzle(Puzzle *p);
 void fill_buttons(Puzzle *p);
 Button vs_button_of_ws(Puzzle *p, Button btn);
@@ -93,7 +93,7 @@ int main(void)
     SetTargetFPS(60);
     while (!WindowShouldClose())
     {
-        render();
+        loop();
     }
 #endif
 
@@ -106,53 +106,53 @@ int main(void)
  * Can be cast from keys
  */
 typedef enum {
+    NONE = 0,
     UP = KEY_W,
     DOWN = KEY_S,
     LEFT = KEY_A,
     RIGHT = KEY_D,
 } Direction;
 
-// void move_square(Puzzle *p, Player player, Direction dir)
-// {
-//     switch (dir) {
-//         case UP: {
-//             if (player.y 
-//             player.y -= 1;
-//         } break;
-//         case DOWN: {
-//         } break;
-//         case LEFT: {
-//         } break;
-//         case RIGHT: {
-//         } break;
-//     };
-// }
-
-void render(void)
+void move_square(Puzzle *p, Player *player, Direction dir)
 {
-    // TODO boundary check + animation feedback
-    ASSERT(case_len(go.puzzle.player_case) > 0);
+    switch (dir) {
+        case UP: {
+            if (player->y > 0) {
+                player->y -= 1;
+            } // TODO play animation?
+        } break;
+        case DOWN: {
+            if (player->y < p->rows - 1) {
+                player->y += 1;
+            } // TODO play animation?
+        } break;
+        case LEFT: {
+            if (player->x > 0) {
+                player->x -= 1;
+            } // TODO play animation?
+        } break;
+        case RIGHT: {
+            if (player->x < p->cols - 1) {
+                player->x += 1;
+            } // TODO play animation?
+        } break;
+            default: {
+            INFO("This function should not be run");
+        } break;
+    };
+}
+
+void loop(void)
+{
+    Direction dir = IsKeyPressed(KEY_W) ? UP
+        : IsKeyPressed(KEY_A) ? LEFT
+        : IsKeyPressed(KEY_S) ? DOWN
+        : IsKeyPressed(KEY_D) ? RIGHT
+        : NONE;
     size_t i;
-    if (IsKeyPressed(KEY_W)) {
-        for (i = 0; i < case_len(go.puzzle.player_case); ++i) {
-            go.puzzle.player_case[i].y -= 1;
-        }
+    for (i = 0; i < case_len(go.puzzle.player_case) && dir != NONE; ++i) {
+        move_square(&go.puzzle, &go.puzzle.player_case[i], dir);
     }
-    if (IsKeyPressed(KEY_A)) {
-        for (i = 0; i < case_len(go.puzzle.player_case); ++i) {
-			go.puzzle.player_case[i].x -= 1;
-        }
-	}
-    if (IsKeyPressed(KEY_S)) {
-        for (i = 0; i < case_len(go.puzzle.player_case); ++i) {
-			go.puzzle.player_case[i].y += 1;
-        }
-	}
-    if (IsKeyPressed(KEY_D)) {
-        for (i = 0; i < case_len(go.puzzle.player_case); ++i) {
-			go.puzzle.player_case[i].x += 1;
-        }
-	}
 
     BeginDrawing();
 
@@ -276,16 +276,12 @@ void mirror_over_line(Puzzle *p, int button_id)
 {
     Button btn = p->button_case[button_id];
     float cell_width = p->rec.width / p->cols;
-    Vector2 btn_cen_grid = {
-        .x = (btn.center.x - p->rec.x) / cell_width,
-        .y = (btn.center.y - p->rec.y) / cell_width,
-    };
     if (btn.center.x == 0.f) {
         // Horizontal mirror
     } else if (btn.center.y == 0.f) {
         // Vertical mirror
         Vector2 mirrored = {
-            .x = (2 * btn_cen_grid.x) - p->player_case[0].x - 1,
+            .x = (2 * btn.center.x) - p->player_case[0].x - 1,
             .y = p->player_case[0].y,
         };
         if (mirrored.x < p->rec.width / cell_width) {
