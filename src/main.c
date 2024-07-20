@@ -18,6 +18,8 @@
 
 #define PUZZEL_BUTTON_SZ 0.25f
 
+#define M_BLUE       CLITERAL(Color){ 0, 121, 241, 100 }     // Blue
+
 typedef enum {
     MIRROR,
     SPLIT,
@@ -152,7 +154,7 @@ void move_square(Puzzle *p, Player *player, Direction dir)
         case LEFT: { new_pos.x += -1; } break;
         case RIGHT: { new_pos.x += 1; } break;
             default: {
-            INFO("This function should not be run");
+            WARNING("This function should not be run");
         } break;
     };
 
@@ -405,18 +407,14 @@ int get_mirror_direction(Puzzle *p, int btn_id)
     Button sel_vs = vs_button_of_ws(p, sel_ws);
     if (sel_ws.center.x == 0.f) {
         if (m_pos.y >= sel_vs.center.y) {
-            INFO("DOWN");
             options |= MIRROR_DOWN;
         } else {
-            INFO("UP");
             options |= MIRROR_UP;
         }
     } else if (sel_ws.center.y == 0.f) {
         if (m_pos.x >= sel_vs.center.x) {
-            INFO("RIGHT");
             options |= MIRROR_RIGHT;
         } else {
-            INFO("LEFT");
             options |= MIRROR_LEFT;
         }
     } else {
@@ -441,6 +439,35 @@ void render_player(Puzzle *p, Player player)
         case PREVIEW: { color = GRAY; } break;
     }
     DrawRectangleRec(dims, color);
+}
+
+void render_selection(Puzzle *p, Button sel_ws)
+{
+    Button sel_vs = vs_button_of_ws(p, sel_ws);
+    int options = get_mirror_direction(p, p->clicked_button);
+    Rectangle rec = { 0 };
+    if (options & MIRROR_LEFT) {
+        rec.x = p->rec.x;
+        rec.y = p->rec.y;
+        rec.width = sel_vs.center.x - p->rec.x;
+        rec.height = p->rec.height;
+    } else if (options & MIRROR_RIGHT) {
+        rec.x = sel_vs.center.x;
+        rec.y = p->rec.y;
+        rec.width = p->rec.x + p->rec.width - sel_vs.center.x;
+        rec.height = p->rec.height;
+    } else if (options & MIRROR_UP) {
+        rec.x = p->rec.x;
+        rec.y = p->rec.y;
+        rec.width = p->rec.width;
+        rec.height = sel_vs.center.y - p->rec.y;
+    } else if (options & MIRROR_DOWN) {
+        rec.x = p->rec.x;
+        rec.y = sel_vs.center.y;
+        rec.width = p->rec.width;
+        rec.height = p->rec.y + p->rec.height - sel_vs.center.y ;
+    }
+    DrawRectangleRec(rec, M_BLUE);
 }
 
 void render_puzzle(Puzzle *p)
@@ -536,31 +563,7 @@ void render_puzzle(Puzzle *p)
 
     if (p->clicked_button != -1) {
         Button sel_ws = p->button_case[p->clicked_button];
-        Button sel_vs = vs_button_of_ws(p, sel_ws);
-        int options = get_mirror_direction(p, p->clicked_button);
-        Rectangle rec = { 0 };
-        if (options & MIRROR_LEFT) {
-            rec.x = p->rec.x;
-            rec.y = p->rec.y;
-            rec.width = sel_vs.center.x - p->rec.x;
-            rec.height = p->rec.height;
-        } else if (options & MIRROR_RIGHT) {
-            rec.x = sel_vs.center.x;
-            rec.y = p->rec.y;
-            rec.width = p->rec.x + p->rec.width - sel_vs.center.x;
-            rec.height = p->rec.height;
-        } else if (options & MIRROR_UP) {
-            rec.x = p->rec.x;
-            rec.y = p->rec.y;
-            rec.width = p->rec.width;
-            rec.height = sel_vs.center.y - p->rec.y;
-        } else if (options & MIRROR_DOWN) {
-            rec.x = p->rec.x;
-            rec.y = sel_vs.center.y;
-            rec.width = p->rec.width;
-            rec.height = p->rec.y + p->rec.height - sel_vs.center.y ;
-        }
-        DrawRectangleRec(rec, BLUE);
+        render_selection(p, sel_ws);
         render_button(p, sel_ws);
     } else {
         for (i = 0; i < case_len(p->button_case); ++i) {
