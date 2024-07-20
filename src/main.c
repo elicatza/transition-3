@@ -482,7 +482,7 @@ void render_puzzle(Puzzle *p)
 
     int hover_id = button_hover_id(p, p->button_case);
     Button vs_btn = vs_button_of_ws(p, p->button_case[hover_id]);
-    if (hover_id != -1) {
+    if (hover_id != -1 && p->clicked_button == -1) {
         DrawCircleV(vs_btn.center, 50.f, MAGENTA);
     }
 
