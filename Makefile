@@ -14,4 +14,10 @@ assets: ./src/embed.c
 
 ./build/$(PROGRAMNAME): ./src/main.c
 	mkdir -p $(shell dirname $@)
-	cc -o $@ $^ -L./vendor/lib -l:libraylib.so -I./vendor/include -lm -g
+	cc -o $@ $^ -L./vendor/lib -l:libraylib.so -I./vendor/include -lm -g -Wall -Wextra
+
+.PHONY: embed
+embed: ./src/embed.c
+	./assets/atlas.sh
+	cc -o ./build/$@ $^ -L./vendor/lib -l:libraylib.so -I./vendor/include
+	./build/embed

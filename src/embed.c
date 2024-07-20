@@ -4,8 +4,8 @@
 
 int main(void)
 {
-    Image heart = LoadImage("./assets/heart.png");
-    assert(ExportImageAsCode(heart, "./assets/heart.h"));
+    Image heart = LoadImage("./assets/atlas.png");
+    assert(ExportImageAsCode(heart, "./assets/atlas.h"));
     Image img;
     return 0;
 }

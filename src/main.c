@@ -3,7 +3,7 @@
 #include <math.h>
 
 #include "core.h"
-#include "../assets/heart.h"
+#include "../assets/atlas.h"
 #define CASE_IMPLEMENTATION
 #include "case.h"
 
@@ -17,8 +17,10 @@
 #define HEIGHT (WIDTH / ASPECT_RATIO)
 
 #define PUZZEL_BUTTON_SZ 0.25f
+#define TEXTURE_BUTTON_OFFX 0
+#define TEXTURE_BUTTON_OFFY 1
 
-#define M_BLUE       CLITERAL(Color){ 0, 121, 241, 100 }     // Blue
+#define M_BLUE       CLITERAL(Color){ 0x55, 0xcd, 0xfc, 100 }     // Blue
 
 typedef enum {
     MIRROR,
@@ -29,6 +31,7 @@ typedef struct {
     Vector2 center;
     float radius;
     ButtonKind kind;
+    bool is_highlighted;
 } Button;
 
 typedef enum {
@@ -41,6 +44,24 @@ typedef struct {
     PlayerState state;
 } Player;
 
+typedef struct {
+    unsigned char height;  /* Texture offset for height  */
+    Vector2 pos;           /* Stored in world space (ws) */
+} Cell;
+
+static unsigned char cell_map[] = { 
+    1, 1, 1, 1, 1, 1, 1, 3, 3, 3,
+    1, 1, 0, 1, 1, 1, 1, 2, 3, 3,
+    1, 0, 0, 0, 1, 1, 1, 2, 2, 2,
+    1, 0, 0, 1, 1, 1, 1, 2, 2, 2,
+    1, 1, 1, 1, 1, 1, 1, 2, 2, 2,
+    1, 1, 1, 1, 1, 1, 1, 2, 2, 2,
+    1, 1, 2, 2, 1, 2, 2, 2, 3, 3,
+    2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
+    2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
+    2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
+};
+
 /**
  * All values are to be defined in world space
  * Translations are done to convert to view space
@@ -49,7 +70,8 @@ typedef struct {
     Player *player_case;
     size_t rows;
     size_t cols;
-    unsigned char *cells;
+
+    Cell *cells;
     Button *button_case;
     Rectangle rec;
     float padding;
@@ -57,7 +79,7 @@ typedef struct {
 } Puzzle;
 
 typedef struct {
-    Texture2D heart;
+    Texture2D atlas;
     Puzzle puzzle;
 } GO;
 
@@ -67,6 +89,7 @@ GO go = { 0 };
 void loop(void);
 void render_puzzle(Puzzle *p);
 void fill_buttons(Puzzle *p);
+void fill_cells(Puzzle *p);
 Button vs_button_of_ws(Puzzle *p, Button btn);
 Player vs_player_of_ws(Puzzle *p, Player player);
 
@@ -78,11 +101,11 @@ int main(void)
     SetConfigFlags(/* FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE | */ FLAG_MSAA_4X_HINT);
     InitWindow(width, height, "demo");
 
-    Image heart_img = {
-        .data = HEART_DATA,
-        .width = HEART_WIDTH,
-        .height = HEART_HEIGHT,
-        .format = HEART_FORMAT,
+    Image atlas_img = {
+        .data = ATLAS_DATA,
+        .width = ATLAS_WIDTH,
+        .height = ATLAS_HEIGHT,
+        .format = ATLAS_FORMAT,
         .mipmaps = 1,
     };
 
@@ -90,14 +113,16 @@ int main(void)
         .player_case = case_init(64, sizeof *puzzle.player_case),
         .cols = 10,
         .rows = 10,
-        .cells = NULL,
-        .button_case = case_init(64, sizeof (Button)),
+        .cells = case_init(100, sizeof *puzzle.cells),
+        .button_case = case_init(64, sizeof *puzzle.button_case),
         .padding = 30.f,
         .clicked_button = -1,
     };
     case_push(puzzle.player_case, ((Player) { .pos = (Vector2) { 0.f, 0.f }, .state = PHYSICAL } ));
-    go.heart = LoadTextureFromImage(heart_img);
+    go.atlas = LoadTextureFromImage(atlas_img);
     go.puzzle = puzzle;
+    fill_cells(&puzzle);
+    fill_buttons(&go.puzzle);
 
 #if defined(PLATFORM_WEB)
     emscripten_set_main_loop(loop, 0, 1);
@@ -109,7 +134,7 @@ int main(void)
     }
 #endif
 
-    UnloadTexture(go.heart);
+    UnloadTexture(go.atlas);
     CloseWindow();
     return 0;
 }
@@ -219,10 +244,39 @@ void loop(void)
     BeginDrawing();
 
     ClearBackground(RAYWHITE);
-    DrawTexture(go.heart, 10, 10, RED);
+    // DrawTexture(go.atlas, 10, 10, WHITE);
+    Rectangle src = {
+        .x = 8.f * 0.f, .y = 8.f * 1.f,
+        .width = 8.f, .height = 8.f,
+    };
+    Rectangle dest = {
+        .x = 10.f, .y = 10.f,
+        .width = 23.f, .height = 23.f,
+    };
+    DrawTexturePro(go.atlas, src, dest, (Vector2) { 0.f, 0.f} , 0.f, WHITE);
     render_puzzle(&go.puzzle);
 
     EndDrawing();
+}
+
+void fill_cells(Puzzle *p)
+{
+    case_len(p->button_case) = 0;
+
+    size_t row, col;
+    for (row = 0; row < p->rows; ++row) {
+        for (col = 0; col < p->cols; ++col) {
+            Cell cell = {
+                .pos = (Vector2) {
+                    .x = col,
+                    .y = row,
+                },
+                .height = cell_map[row * p->cols + col],
+            };
+            case_push(p->cells, cell);
+
+        }
+    }
 }
 
 void fill_buttons(Puzzle *p)
@@ -238,6 +292,7 @@ void fill_buttons(Puzzle *p)
             },
             .radius = PUZZEL_BUTTON_SZ,
             .kind = MIRROR,
+            .is_highlighted = false,
         };
         case_push(p->button_case, btn);
 
@@ -262,10 +317,23 @@ void fill_buttons(Puzzle *p)
     }
 }
 
-void render_button(Puzzle *p, Button btn)
+void render_button(Puzzle *p, Button *btn)
 {
-    Button vs_btn = vs_button_of_ws(p, btn);
-    DrawCircleV(vs_btn.center, vs_btn.radius, GREEN);
+    Button vs_btn = vs_button_of_ws(p, *btn);
+    Rectangle src = {
+        .x = 8.f * TEXTURE_BUTTON_OFFX + 0.1f, .y = 8.f * TEXTURE_BUTTON_OFFY + 0.1f,
+        .width = 7.8f, .height = 7.8f,
+    };
+    Rectangle dest = {
+        .x = vs_btn.center.x, .y = vs_btn.center.y,
+        .width = vs_btn.radius * 2.f, .height = vs_btn.radius * 2.f,
+    };
+    if (btn->is_highlighted) {
+        DrawTexturePro(go.atlas, src, dest, (Vector2) { vs_btn.radius, vs_btn.radius} , 45.f, WHITE);
+        btn->is_highlighted = 0;
+    } else {
+        DrawTexturePro(go.atlas, src, dest, (Vector2) { vs_btn.radius, vs_btn.radius} , 0.f, WHITE);
+    }
 }
 
 Vector2 vec2d_add(Vector2 a, Vector2 b)
@@ -307,6 +375,21 @@ Button vs_button_of_ws(Puzzle *p, Button btn)
         },
         .radius = btn.radius * cell_width,
         .kind = btn.kind,
+    };
+}
+
+/**
+ * Converts from cell in world space to cell in view space
+ */
+Cell vs_cell_of_ws(Puzzle *p, Cell cell)
+{
+    float cell_width = p->rec.width / p->cols;
+    return (Cell) {
+        .pos = (Vector2) {
+            .x = cell.pos.x * cell_width + p->rec.x,
+            .y = cell.pos.y * cell_width + p->rec.y,
+        },
+        .height = cell.height,
     };
 }
 
@@ -470,6 +553,21 @@ void render_selection(Puzzle *p, Button sel_ws)
     DrawRectangleRec(rec, M_BLUE);
 }
 
+void render_cell(Puzzle *p, Cell cell)
+{
+    Cell vs_cell = vs_cell_of_ws(p, cell);
+    float cell_width = p->rec.width / p->cols;
+    Rectangle src = {
+        .x = 8.f * (cell.height & 0b11), .y = 0.f,
+        .width = 8.f, .height = 8.f,
+    };
+    Rectangle dest = {
+        .x = vs_cell.pos.x, .y = vs_cell.pos.y,
+        .width = cell_width, .height = cell_width,
+    };
+    DrawTexturePro(go.atlas, src, dest, (Vector2) { 0.f, 0.f} , 0.f, WHITE);
+}
+
 void render_puzzle(Puzzle *p)
 {
     int height = GetScreenHeight() - p->padding;
@@ -477,13 +575,12 @@ void render_puzzle(Puzzle *p)
     ASSERT(width >= height);
     float cell_width = (float) height / p->cols;
 
-    fill_buttons(p);
 
 
     int hover_id = button_hover_id(p, p->button_case);
     Button vs_btn = vs_button_of_ws(p, p->button_case[hover_id]);
     if (hover_id != -1 && p->clicked_button == -1) {
-        DrawCircleV(vs_btn.center, 50.f, MAGENTA);
+        p->button_case[hover_id].is_highlighted = true;
     }
 
     if (p->clicked_button == -1) {
@@ -521,6 +618,22 @@ void render_puzzle(Puzzle *p)
     };
     DrawRectangleLinesEx(p->rec, 10.f, RED);
 
+    // Draw cells
+    size_t i;
+    for (i = 0; i < case_len(p->cells); ++i) {
+        render_cell(p, p->cells[i]);
+    }
+
+    // Draws player objects
+    for (i = 0; i < case_len(p->player_case); ++i) {
+        render_player(p, p->player_case[i]);
+    }
+    for (i = 0; i < case_len(p->player_case); ++i) {
+        if (p->player_case[i].state == PREVIEW) {
+            case_len(p->player_case) = i;
+        }
+    }
+
     // Draw rows
     size_t row;
     for (row = 0; row < p->rows; ++row) {
@@ -532,7 +645,7 @@ void render_puzzle(Puzzle *p)
             .x = p->rec.x + p->rec.width,
             .y = row * cell_width + p->rec.y,
         };
-        DrawLineEx(start, end, 1.f, BLUE);
+        DrawLineEx(start, end, 1.f, BLACK);
     }
 
     // Draw columns
@@ -546,28 +659,19 @@ void render_puzzle(Puzzle *p)
             .x = col * cell_width + p->rec.x,
             .y = p->rec.y + p->rec.height,
         };
-        DrawLineEx(start, end, 1.f, BLUE);
+        DrawLineEx(start, end, 1.f, BLACK);
     }
 
 
-    // Draws player objects
-    size_t i;
-    for (i = 0; i < case_len(p->player_case); ++i) {
-        render_player(p, p->player_case[i]);
-    }
-    for (i = 0; i < case_len(p->player_case); ++i) {
-        if (p->player_case[i].state == PREVIEW) {
-            case_len(p->player_case) = i;
-        }
-    }
+
 
     if (p->clicked_button != -1) {
         Button sel_ws = p->button_case[p->clicked_button];
         render_selection(p, sel_ws);
-        render_button(p, sel_ws);
+        render_button(p, &sel_ws);
     } else {
         for (i = 0; i < case_len(p->button_case); ++i) {
-            render_button(p, p->button_case[i]);
+            render_button(p, &p->button_case[i]);
         }
     }
 }
