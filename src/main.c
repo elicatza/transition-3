@@ -50,19 +50,6 @@ typedef struct {
     Vector2 pos;           /* Stored in world space (ws) */
 } Cell;
 
-static unsigned char cell_map[] = { 
-    1, 1, 1, 1, 1, 1, 1, 3, 3, 3,
-    1, 1, 0, 1, 1, 1, 1, 2, 3, 3,
-    1, 0, 0, 0, 1, 1, 1, 2, 2, 2,
-    1, 0, 0, 1, 1, 1, 1, 2, 2, 2,
-    1, 1, 1, 1, 1, 1, 1, 2, 2, 2,
-    1, 1, 1, 1, 1, 1, 1, 2, 2, 2,
-    1, 1, 2, 2, 1, 2, 2, 2, 3, 3,
-    2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
-    2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
-    2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
-};
-
 /**
  * All values are to be defined in world space
  * Translations are done to convert to view space
@@ -87,10 +74,31 @@ typedef struct {
 GO go = { 0 };
 
 
+/**
+ * First 2 bits are for height (0b00, 0b01, 0b10, 0b11)
+ * Second 2 are for type (regular, player, goal, `reserved`) (0b00xx, 0b01xx, 0b10xx, 0b11xx)
+ */
+
+#define P 0b0100
+#define G 0b1000
+static unsigned char cell_map[] = { 
+    1, 1, 1, 1, 1, 1, 1, 3, 3, 3,
+    1, 1, 0, 1, 1, 1, 1, 2, 3, 3,
+    1, 0, 0, 0, 1, 1, 1, 2, 2, 2,
+    1, 0, 0, 1, 1, 1, 1, 2, 2, 2,
+    1, 1, 1, 1, 1,1|P,1, 2, 2, 2,
+    1, 1, 1, 1, 1, 1, 1, 2, 2, 2,
+    1, 1, 2, 2, 1, 2,2|G,2, 3, 3,
+    2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
+    2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
+    2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
+};
+
 void loop(void);
 void render_puzzle(Puzzle *p);
 void fill_buttons(Puzzle *p);
 void fill_cells(Puzzle *p);
+void fill_players(Puzzle *p);
 Button vs_button_of_ws(Puzzle *p, Button btn);
 Player vs_player_of_ws(Puzzle *p, Player player);
 
@@ -119,10 +127,11 @@ int main(void)
         .padding = 30.f,
         .clicked_button = -1,
     };
-    case_push(puzzle.player_case, ((Player) { .pos = (Vector2) { 0.f, 0.f }, .state = PHYSICAL, .height = 1 } ));
+    // case_push(puzzle.player_case, ((Player) { .pos = (Vector2) { 0.f, 0.f }, .state = PHYSICAL, .height = 1 } ));
     go.atlas = LoadTextureFromImage(atlas_img);
     go.puzzle = puzzle;
     fill_cells(&puzzle);
+    fill_players(&puzzle);
     fill_buttons(&go.puzzle);
 
 #if defined(PLATFORM_WEB)
@@ -191,6 +200,9 @@ void move_player(Puzzle *p, Player *player, Direction dir)
         } break;
     };
 
+    if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) {
+        new_player.height += 1;
+    }
     // Check collisions
     if (is_valid_pos(p, new_player)) {
         new_player.height = cell_height_at_pos(p, new_player.pos);
@@ -269,7 +281,7 @@ void loop(void)
 
 void fill_cells(Puzzle *p)
 {
-    case_len(p->button_case) = 0;
+    case_len(p->cells) = 0;
 
     size_t row, col;
     for (row = 0; row < p->rows; ++row) {
@@ -279,13 +291,37 @@ void fill_cells(Puzzle *p)
                     .x = col,
                     .y = row,
                 },
-                .height = cell_map[row * p->cols + col],
+                .height = cell_map[row * p->cols + col] & 0b11,
             };
             case_push(p->cells, cell);
 
         }
     }
 }
+
+void fill_players(Puzzle *p)
+{
+    case_len(p->player_case) = 0;
+
+    size_t row, col;
+    for (row = 0; row < p->rows; ++row) {
+        for (col = 0; col < p->cols; ++col) {
+            if ((cell_map[row * p->cols + col] & 0b1100) == P) {
+                INFO("Found player");
+                Player player = {
+                    .pos = (Vector2) {
+                        .x = col,
+                        .y = row,
+                    },
+                    .height = cell_map[row * p->cols + col],
+                    .state = PHYSICAL,
+                };
+                case_push(p->player_case, player);
+            }
+        }
+    }
+}
+
 
 void fill_buttons(Puzzle *p)
 {
@@ -631,7 +667,6 @@ void render_puzzle(Puzzle *p)
         .x = (width - height) / 2.f,
         .y = p->padding / 2.f,
     };
-    DrawRectangleLinesEx(p->rec, 10.f, RED);
 
     // Draw cells
     size_t i;
@@ -639,7 +674,7 @@ void render_puzzle(Puzzle *p)
         render_cell(p, p->cells[i]);
     }
 
-    // Draws player objects
+    // Draws players
     for (i = 0; i < case_len(p->player_case); ++i) {
         render_player(p, p->player_case[i]);
     }
@@ -663,6 +698,7 @@ void render_puzzle(Puzzle *p)
         DrawLineEx(start, end, 1.f, BLACK);
     }
 
+
     // Draw columns
     size_t col;
     for (col = 0; col < p->cols; ++col) {
@@ -678,6 +714,12 @@ void render_puzzle(Puzzle *p)
     }
 
 
+
+    if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) {
+        DrawRectangleLinesEx(p->rec, 3.f, RED);
+    } else {
+        DrawRectangleLinesEx(p->rec, 3.f, GREEN);
+    }
 
 
     if (p->clicked_button != -1) {
