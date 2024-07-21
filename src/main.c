@@ -46,7 +46,7 @@ typedef struct {
 } Player;
 
 typedef struct {
-    unsigned char height;  /* Texture offset for height  */
+    unsigned char info;  /* Texture offset for height  */
     Vector2 pos;           /* Stored in world space (ws) */
 } Cell;
 
@@ -66,6 +66,12 @@ typedef struct {
     int clicked_button;  /* id if button is clicked. Else -1 */
 } Puzzle;
 
+// typedef enum {
+//     PUZZLE,
+//     WORLD,
+//     MENU,
+// } GameState;
+
 typedef struct {
     Texture2D atlas;
     Puzzle puzzle;
@@ -79,10 +85,12 @@ GO go = { 0 };
  * Second 2 are for type (regular, player, goal, `reserved`) (0b00xx, 0b01xx, 0b10xx, 0b11xx)
  */
 
+#define MASK_HEIGHT(a) ((a) & 0b11)
+#define MASK_TYPE(a) ((a) & 0b1100)
 #define P 0b0100
 #define G 0b1000
 static unsigned char cell_map[] = { 
-    1, 1, 1, 1, 1, 1, 1, 3, 3, 3,
+    1, 1, 1, 1, 1, 1, 1, 3,3|G,3,
     1, 1, 0, 1, 1, 1, 1, 2, 3, 3,
     1, 0, 0, 0, 1, 1, 1, 2, 2, 2,
     1, 0, 0, 1, 1, 1, 1, 2, 2, 2,
@@ -163,7 +171,7 @@ typedef enum {
 
 int cell_height_at_pos(Puzzle *p, Vector2 pos)
 {
-    return p->cells[((int) (pos.y + 0.5f)) * p->cols + (int) (pos.x + 0.5f)].height;
+    return MASK_HEIGHT(p->cells[((int) (pos.y + 0.5f)) * p->cols + (int) (pos.x + 0.5f)].info);
 }
 
 /**
@@ -292,7 +300,7 @@ void fill_cells(Puzzle *p)
                     .x = col,
                     .y = row,
                 },
-                .height = cell_map[row * p->cols + col] & 0b11,
+                .info = cell_map[row * p->cols + col],
             };
             case_push(p->cells, cell);
 
@@ -393,10 +401,10 @@ void render_height_lines(Puzzle *p)
                 // Has cell down
                 Cell cd = p->cells[(row + 1) * p->cols + col];
                 if (cd.pos.x != c.pos.x) continue;
-                if (c.height != cd.height) {
+                if (MASK_HEIGHT(c.info) != MASK_HEIGHT(cd.info)) {
                     Vector2 start = vs_pos_of_ws(p, cd.pos);
                     Vector2 end = { start.x + cell_width, start. y};
-                    float diff = fabsf((float) c.height - cd.height);
+                    float diff = fabsf((float) MASK_HEIGHT(c.info) - MASK_HEIGHT(cd.info));
                     DrawLineEx(start, end, diff * 2.f, RED);
                 }
             }
@@ -405,10 +413,10 @@ void render_height_lines(Puzzle *p)
                 // Has cell Right
                 Cell cr = p->cells[row * p->cols + col + 1];
                 if (cr.pos.y != c.pos.y) continue;
-                if (c.height != cr.height) {
+                if (MASK_HEIGHT(c.info) != MASK_HEIGHT(cr.info)) {
                     Vector2 start = vs_pos_of_ws(p, cr.pos);
                     Vector2 end = { start.x, start.y + cell_width};
-                    float diff = fabsf((float) c.height - cr.height);
+                    float diff = fabsf((float) MASK_HEIGHT(c.info) - MASK_HEIGHT(cr.info));
                     DrawLineEx(start, end, diff * 2.f, RED);
                 }
             }
@@ -480,7 +488,7 @@ Cell vs_cell_of_ws(Puzzle *p, Cell cell)
             .x = cell.pos.x * cell_width + p->rec.x,
             .y = cell.pos.y * cell_width + p->rec.y,
         },
-        .height = cell.height,
+        .info = cell.info,
     };
 }
 
@@ -656,7 +664,7 @@ void render_cell(Puzzle *p, Cell cell)
     Cell vs_cell = vs_cell_of_ws(p, cell);
     float cell_width = p->rec.width / p->cols;
     Rectangle src = {
-        .x = 8.f * (cell.height & 0b11), .y = 0.f,
+        .x = 8.f * MASK_HEIGHT(cell.info), .y = 0.f,
         .width = 8.f, .height = 8.f,
     };
     Rectangle dest = {
@@ -664,6 +672,9 @@ void render_cell(Puzzle *p, Cell cell)
         .width = cell_width, .height = cell_width,
     };
     DrawTexturePro(go.atlas, src, dest, (Vector2) { 0.f, 0.f} , 0.f, WHITE);
+    if (MASK_TYPE(cell.info) == G) {
+        DrawRectangleRec(dest, RED);
+    }
 }
 
 void render_puzzle(Puzzle *p)
