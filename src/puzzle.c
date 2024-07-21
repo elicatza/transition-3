@@ -1,18 +1,48 @@
 #include "puzzle.h"
 
-#include "case.h"
-#include "core.h"
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
-void fill_buttons(Puzzle *p);
-void fill_cells(Puzzle *p, unsigned char *puzzle_body);
-void fill_players(Puzzle *p, unsigned char *puzzle_body);
-int button_hover_id(Puzzle *p, Button *btn_case);
-int get_mirror_direction(Puzzle *p);
-void mirror_over_line(Puzzle *p, int button_id, int options);
+#include "case.h"
+#include "core.h"
 
+/**
+ * Can be cast from keys
+ */
+typedef enum {
+    NONE = 0,
+    UP = KEY_W,
+    DOWN = KEY_S,
+    LEFT = KEY_A,
+    RIGHT = KEY_D,
+} Direction;
+
+// Note: not defined in stdlib when building for web
+#ifdef PLATFORM_WEB
+typedef int (*__compar_fn_t)(const void *, const void *);
+#endif
+
+
+Vector2 vec2d_add(Vector2 a, Vector2 b)
+{
+    return (Vector2) {
+        .x = a.x + b.x,
+        .y = a.y + b.y,
+    };
+}
+
+Vector2 vec2d_sub(Vector2 a, Vector2 b)
+{
+    return (Vector2) {
+        .x = a.x - b.x,
+        .y = a.y - b.y,
+    };
+}
+
+/**
+ * Converts from position in world space to position in view space
+ */
 Vector2 vs_pos_of_ws(Puzzle *p, Vector2 pos)
 {
     float cell_width = p->rec.width / p->cols;
@@ -24,19 +54,15 @@ Vector2 vs_pos_of_ws(Puzzle *p, Vector2 pos)
 
 /**
  * Converts from button in world space to button in view space
- * TODO: convert to memcpy
  */
 Button vs_button_of_ws(Puzzle *p, Button btn)
 {
     float cell_width = p->rec.width / p->cols;
-    return (Button) {
-        .center = (Vector2) {
-            .x = btn.center.x * cell_width + p->rec.x,
-            .y = btn.center.y * cell_width + p->rec.y,
-        },
-        .radius = btn.radius * cell_width,
-        .kind = btn.kind,
-    };
+    Button rt = btn;
+    rt.center.x = btn.center.x * cell_width + p->rec.x;
+    rt.center.y = btn.center.y * cell_width + p->rec.y;
+    rt.radius = btn.radius * cell_width;
+    return rt;
 }
 
 /**
@@ -44,29 +70,20 @@ Button vs_button_of_ws(Puzzle *p, Button btn)
  */
 Cell vs_cell_of_ws(Puzzle *p, Cell cell)
 {
-    float cell_width = p->rec.width / p->cols;
-    return (Cell) {
-        .pos = (Vector2) {
-            .x = cell.pos.x * cell_width + p->rec.x,
-            .y = cell.pos.y * cell_width + p->rec.y,
-        },
-        .info = cell.info,
-    };
+    Cell rt = cell;
+    rt.pos = vs_pos_of_ws(p, rt.pos);
+    return rt;
 }
 
+/**
+ * Converts from player in world space to player in view space
+ */
 Player vs_player_of_ws(Puzzle *p, Player player)
 {
-    float cell_width = p->rec.width / p->cols;
-    return (Player) {
-        .pos = {
-            .x = player.pos.x * cell_width + p->rec.x,
-            .y = player.pos.y * cell_width + p->rec.y,
-        },
-        .state = player.state,
-        .height = player.height,
-    };
+    Player rt = player;
+    rt.pos = vs_pos_of_ws(p, rt.pos);
+    return rt;
 }
-
 
 int cell_height_at_pos(Puzzle *p, Vector2 pos)
 {
@@ -74,7 +91,7 @@ int cell_height_at_pos(Puzzle *p, Vector2 pos)
 }
 
 /**
- * O(n)
+ * O(n) where n is the amount of players
  */
 bool is_valid_pos(Puzzle *p, Player player)
 {
@@ -92,6 +109,26 @@ bool is_valid_pos(Puzzle *p, Player player)
         }
     }
     return true;
+}
+
+int players_cmp_ud(const void *a, const void *b)
+{
+    return ((Player *) a)->pos.y - ((Player *) b)->pos.y;
+}
+
+int players_cmp_du(const void *a, const void *b)
+{
+    return ((Player *) b)->pos.y - ((Player *) a)->pos.y;
+}
+
+int players_cmp_lr(const void *a, const void *b)
+{
+    return ((Player *) a)->pos.x - ((Player *) b)->pos.x;
+}
+
+int players_cmp_rl(const void *a, const void *b)
+{
+    return ((Player *) b)->pos.x - ((Player *) a)->pos.x;
 }
 
 void move_player(Puzzle *p, Player *player, Direction dir)
@@ -118,43 +155,119 @@ void move_player(Puzzle *p, Player *player, Direction dir)
     }
 }
 
-int players_cmp_ud(const void *a, const void *b)
+/**
+ * @return -1 if no match is found. Otherwise the index of hover button
+ */
+int button_hover_id(Puzzle *p, Button *btn_case)
 {
-    return ((Player *) a)->pos.y - ((Player *) b)->pos.y;
+    size_t i;
+    Vector2 pos = GetMousePosition();
+    for (i = 0; i < case_len(btn_case); ++i) {
+        Button vs_button = vs_button_of_ws(p, btn_case[i]);
+        if (CheckCollisionPointCircle(pos, vs_button.center, vs_button.radius)) {
+            return i;
+        }
+    }
+    return -1;
 }
 
-int players_cmp_du(const void *a, const void *b)
+/**
+ * @return check MIRROR_ namespace
+ */
+int get_mirror_direction(Puzzle *p)
 {
-    return ((Player *) b)->pos.y - ((Player *) a)->pos.y;
+    int options = 0;
+    Vector2 m_pos = GetMousePosition();
+    Button sel_ws = p->button_case[p->clicked_button];
+    Button sel_vs = vs_button_of_ws(p, sel_ws);
+    if (sel_ws.center.x == 0.f) {
+        if (m_pos.y >= sel_vs.center.y) {
+            options |= MIRROR_DOWN;
+        } else {
+            options |= MIRROR_UP;
+        }
+    } else if (sel_ws.center.y == 0.f) {
+        if (m_pos.x >= sel_vs.center.x) {
+            options |= MIRROR_RIGHT;
+        } else {
+            options |= MIRROR_LEFT;
+        }
+    } else {
+        ASSERT(0, "Unreachable. New dimension?");
+    }
+    return options;
 }
 
-int players_cmp_lr(const void *a, const void *b)
+/**
+ * @param options. Check MIRROR_ namespace for options.
+ */
+void mirror_over_line(Puzzle *p, int button_id, int options)
 {
-    return ((Player *) a)->pos.x - ((Player *) b)->pos.x;
-}
+    ASSERT(options != 0, "Invalid options");
+    Button ws_btn = p->button_case[button_id];
 
-int players_cmp_rl(const void *a, const void *b)
-{
-    return ((Player *) b)->pos.x - ((Player *) a)->pos.x;
-}
 
-typedef int (*__compar_fn_t)(const void *, const void *);
+    size_t len = case_len(p->player_case);
+    size_t i;
+    for (i = 0; i < len; ++i) {
+
+        Vector2 mirrored = { 0 };
+        if (options & MIRROR_UP || options & MIRROR_DOWN) {
+            // Horizontal mirror
+            mirrored = (Vector2) {
+                .x = p->player_case[i].pos.x,
+                .y = (2 * ws_btn.center.y) - p->player_case[i].pos.y - 1,
+            };
+            if ((mirrored.y >= ws_btn.center.y && options & MIRROR_UP) ||
+                (mirrored.y < ws_btn.center.y && options & MIRROR_DOWN)) {
+                continue;
+            }
+        } else if (options & MIRROR_RIGHT || options & MIRROR_LEFT) {
+            // Vertical mirror
+            mirrored = (Vector2) {
+                .x = (2 * ws_btn.center.x) - p->player_case[i].pos.x - 1,
+                .y = p->player_case[i].pos.y,
+            };
+            if ((mirrored.x >= ws_btn.center.x && options & MIRROR_LEFT) ||
+                (mirrored.x < ws_btn.center.x && options & MIRROR_RIGHT)) {
+                continue;
+            }
+        }
+
+        Player mirrored_p;
+        memcpy(&mirrored_p, &p->player_case[i], sizeof mirrored_p);
+        mirrored_p.pos = mirrored;
+
+        if (is_valid_pos(p, mirrored_p)) {
+            mirrored_p.height = cell_height_at_pos(p, mirrored_p.pos);
+            if (options & MIRROR_PREVIEW) {
+                mirrored_p.state = PREVIEW;
+                case_push(p->player_case, mirrored_p);
+            } else {
+                // In bound of puzzle
+                mirrored_p.state = PHYSICAL;
+                case_push(p->player_case, mirrored_p);
+                INFO("added new at %.0f, %.0f", mirrored.x, mirrored.y);
+            }
+        }
+    }
+}
 
 void update_puzzle(Puzzle *p)
 {
     Direction dir;
     __compar_fn_t cmp_fn = NULL;
 
-    if (IsKeyPressed(KEY_W)) {
+    if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) {
         dir = UP;
         cmp_fn = players_cmp_ud;
-    } else if (IsKeyPressed(KEY_A)) {
+    } else if (IsKeyPressed(KEY_A) || IsKeyPressed(KEY_LEFT)) {
         dir = LEFT;
         cmp_fn = players_cmp_lr;
-    } else if (IsKeyPressed(KEY_S)) {
+    } else if (IsKeyPressed(KEY_S) || IsKeyPressed(KEY_DOWN)) {
         dir = DOWN;
         cmp_fn = players_cmp_du;
-    } else if (IsKeyPressed(KEY_D)) {
+    } else if (IsKeyPressed(KEY_D) || IsKeyPressed(KEY_RIGHT)) {
         dir = RIGHT;
         cmp_fn = players_cmp_rl;
     } else {
@@ -198,88 +311,6 @@ void update_puzzle(Puzzle *p)
         }
     }
 
-}
-
-void fill_cells(Puzzle *p, unsigned char *puzzle_body)
-{
-    case_len(p->cell_case) = 0;
-
-    size_t row, col;
-    for (row = 0; row < p->rows; ++row) {
-        for (col = 0; col < p->cols; ++col) {
-            Cell cell = {
-                .pos = (Vector2) {
-                    .x = col,
-                    .y = row,
-                },
-                .info = puzzle_body[row * p->cols + col],
-            };
-            case_push(p->cell_case, cell);
-
-        }
-    }
-}
-
-void fill_players(Puzzle *p, unsigned char *puzzle_body)
-{
-    case_len(p->player_case) = 0;
-
-    size_t row, col;
-    for (row = 0; row < p->rows; ++row) {
-        for (col = 0; col < p->cols; ++col) {
-            if ((puzzle_body[row * p->cols + col] & 0b1100) == P) {
-                INFO("Found player");
-                Player player = {
-                    .pos = (Vector2) {
-                        .x = col,
-                        .y = row,
-                    },
-                    .height = puzzle_body[row * p->cols + col],
-                    .state = PHYSICAL,
-                };
-                case_push(p->player_case, player);
-            }
-        }
-    }
-}
-
-
-void fill_buttons(Puzzle *p)
-{
-    case_len(p->button_case) = 0;
-
-    size_t row;
-    for (row = 1; row < p->rows; ++row) {
-        Button btn = {
-            .center = (Vector2) {
-                .x = 0.f,
-                .y = row,
-            },
-            .radius = PUZZEL_BUTTON_SZ,
-            .kind = MIRROR,
-            .is_highlighted = false,
-        };
-        case_push(p->button_case, btn);
-
-        // btn.center.x = p->rec.x + p->rec.width;
-        // case_push(p->button_case, btn);
-    }
-
-    size_t col;
-    for (col = 1; col < p->cols; ++col) {
-        Button btn = {
-            .center = (Vector2) {
-                .x = col,
-                .y = 0.f,
-            },
-            .radius = PUZZEL_BUTTON_SZ,
-            .kind = MIRROR,
-        };
-        case_push(p->button_case, btn);
-
-        // btn.center.y = p->rec.y + p->rec.height;
-        // case_push(p->button_case, btn);
-    }
 }
 
 void render_button(Puzzle *p, Button *btn, Texture2D atlas)
@@ -337,133 +368,11 @@ void render_height_lines(Puzzle *p)
     }
 }
 
-Vector2 vec2d_add(Vector2 a, Vector2 b)
-{
-    return (Vector2) {
-        .x = a.x + b.x,
-        .y = a.y + b.y,
-    };
-}
-
-Vector2 vec2d_sub(Vector2 a, Vector2 b)
-{
-    return (Vector2) {
-        .x = a.x - b.x,
-        .y = a.y - b.y,
-    };
-}
-
-bool in_circle(Vector2 center, float radius, Vector2 point)
-{
-    float lhs = powf(point.x - center.x, 2.f) + powf(point.y - center.y, 2.f);
-    float rhs = radius * radius;
-    if (lhs <= rhs) {
-        return true;
-    }
-    return false;
-}
-
-
-/**
- * @return -1 if no match is found. Otherwise the index of hover button
- */
-int button_hover_id(Puzzle *p, Button *btn_case)
-{
-    size_t i;
-    Vector2 pos = GetMousePosition();
-    for (i = 0; i < case_len(btn_case); ++i) {
-        Button vs_button = vs_button_of_ws(p, btn_case[i]);
-        if (in_circle(vs_button.center, vs_button.radius, pos)) {
-            return i;
-        }
-    }
-    return -1;
-}
-
 /**
  * Should be lighter based on hight / darker based on depth
  */
 void render_player(Puzzle *p, Player player);
 
-/**
- * @param options. Check MIRROR_ namespace for options, 
- */
-void mirror_over_line(Puzzle *p, int button_id, int options)
-{
-    ASSERT(options != 0, "Invalid options");
-    Button ws_btn = p->button_case[button_id];
-
-
-    size_t len = case_len(p->player_case);
-    size_t i;
-    for (i = 0; i < len; ++i) {
-
-        Vector2 mirrored = { 0 };
-        if (options & MIRROR_UP || options & MIRROR_DOWN) {
-            // Horizontal mirror
-            mirrored = (Vector2) {
-                .x = p->player_case[i].pos.x,
-                .y = (2 * ws_btn.center.y) - p->player_case[i].pos.y - 1,
-            };
-            if ((mirrored.y >= ws_btn.center.y && options & MIRROR_UP) ||
-                (mirrored.y < ws_btn.center.y && options & MIRROR_DOWN)) {
-                continue;
-            }
-        } else if (options & MIRROR_RIGHT || options & MIRROR_LEFT) {
-            // Vertical mirror
-            mirrored = (Vector2) {
-                .x = (2 * ws_btn.center.x) - p->player_case[i].pos.x - 1,
-                .y = p->player_case[i].pos.y,
-            };
-            if ((mirrored.x >= ws_btn.center.x && options & MIRROR_LEFT) ||
-                (mirrored.x < ws_btn.center.x && options & MIRROR_RIGHT)) {
-                continue;
-            }
-        }
-
-        Player mirrored_p;
-        memcpy(&mirrored_p, &p->player_case[i], sizeof mirrored_p);
-        mirrored_p.pos = mirrored;
-
-        if (is_valid_pos(p, mirrored_p)) {
-            mirrored_p.height = cell_height_at_pos(p, mirrored_p.pos);
-            if (options & MIRROR_PREVIEW) {
-                mirrored_p.state = PREVIEW;
-                case_push(p->player_case, mirrored_p);
-            } else {
-                // In bound of puzzle
-                mirrored_p.state = PHYSICAL;
-                case_push(p->player_case, mirrored_p);
-                INFO("added new at %.0f, %.0f", mirrored.x, mirrored.y);
-            }
-        }
-
-    }
-}
-
-int get_mirror_direction(Puzzle *p)
-{
-    int options = 0;
-    Vector2 m_pos = GetMousePosition();
-    Button sel_ws = p->button_case[p->clicked_button];
-    Button sel_vs = vs_button_of_ws(p, sel_ws);
-    if (sel_ws.center.x == 0.f) {
-        if (m_pos.y >= sel_vs.center.y) {
-            options |= MIRROR_DOWN;
-        } else {
-            options |= MIRROR_UP;
-        }
-    } else if (sel_ws.center.y == 0.f) {
-        if (m_pos.x >= sel_vs.center.x) {
-            options |= MIRROR_RIGHT;
-        } else {
-            options |= MIRROR_LEFT;
-        }
-    } else {
-        ASSERT(0, "Unreachable. New dimension?");
-    }
-    return options;
-}
 
 void render_player(Puzzle *p, Player player)
 {
@@ -614,6 +523,87 @@ void render_puzzle(Puzzle *p, Texture2D atlas)
     }
 }
 
+void fill_cells(Puzzle *p, unsigned char *puzzle_body)
+{
+    case_len(p->cell_case) = 0;
+
+    size_t row, col;
+    for (row = 0; row < p->rows; ++row) {
+        for (col = 0; col < p->cols; ++col) {
+            Cell cell = {
+                .pos = (Vector2) {
+                    .x = col,
+                    .y = row,
+                },
+                .info = puzzle_body[row * p->cols + col],
+            };
+            case_push(p->cell_case, cell);
+
+        }
+    }
+}
+
+void fill_players(Puzzle *p, unsigned char *puzzle_body)
+{
+    case_len(p->player_case) = 0;
+
+    size_t row, col;
+    for (row = 0; row < p->rows; ++row) {
+        for (col = 0; col < p->cols; ++col) {
+            if ((puzzle_body[row * p->cols + col] & 0b1100) == P) {
+                INFO("Found player");
+                Player player = {
+                    .pos = (Vector2) {
+                        .x = col,
+                        .y = row,
+                    },
+                    .height = puzzle_body[row * p->cols + col],
+                    .state = PHYSICAL,
+                };
+                case_push(p->player_case, player);
+            }
+        }
+    }
+}
+
+void fill_buttons(Puzzle *p)
+{
+    case_len(p->button_case) = 0;
+
+    size_t row;
+    for (row = 1; row < p->rows; ++row) {
+        Button btn = {
+            .center = (Vector2) {
+                .x = 0.f,
+                .y = row,
+            },
+            .radius = PUZZEL_BUTTON_SZ,
+            .kind = MIRROR,
+            .is_highlighted = false,
+        };
+        case_push(p->button_case, btn);
+
+        // btn.center.x = p->rec.x + p->rec.width;
+        // case_push(p->button_case, btn);
+    }
+
+    size_t col;
+    for (col = 1; col < p->cols; ++col) {
+        Button btn = {
+            .center = (Vector2) {
+                .x = col,
+                .y = 0.f,
+            },
+            .radius = PUZZEL_BUTTON_SZ,
+            .kind = MIRROR,
+        };
+        case_push(p->button_case, btn);
+
+        // btn.center.y = p->rec.y + p->rec.height;
+        // case_push(p->button_case, btn);
+    }
+}
+
 Puzzle puzzle_load(unsigned char *bytes)
 {
     Puzzle p = { 0 };
@@ -633,3 +623,6 @@ Puzzle puzzle_load(unsigned char *bytes)
     return p;
 }
 
+// TODO:
+// Consider adding cell_width to Puzzle object
+// Does Direction need enumeration

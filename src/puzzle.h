@@ -72,16 +72,6 @@ typedef struct {
     int hover_button;  /* id of hovered button. Else -1 */
 } Puzzle;
 
-/**
- * Can be cast from keys
- */
-typedef enum {
-    NONE = 0,
-    UP = KEY_W,
-    DOWN = KEY_S,
-    LEFT = KEY_A,
-    RIGHT = KEY_D,
-} Direction;
 
 void update_puzzle(Puzzle *p);
 void render_puzzle(Puzzle *p, Texture2D atlas);
