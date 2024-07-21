@@ -89,7 +89,13 @@ GO go = { 0 };
 #define MASK_TYPE(a) ((a) & 0b1100)
 #define P 0b0100
 #define G 0b1000
-static unsigned char cell_map[] = { 
+
+/**
+ * Header: width, height, padding
+ * body cell map
+ */
+static unsigned char puzzle1[] = { 
+    10, 10, 30,
     1, 1, 1, 1, 1, 1, 1, 3,3|G,3,
     1, 1, 0, 1, 1, 1, 1, 2, 3, 3,
     1, 0, 0, 0, 1, 1, 1, 2, 2, 2,
@@ -105,11 +111,12 @@ static unsigned char cell_map[] = {
 void loop(void);
 void render_puzzle(Puzzle *p);
 void fill_buttons(Puzzle *p);
-void fill_cells(Puzzle *p);
-void fill_players(Puzzle *p);
+void fill_cells(Puzzle *p, unsigned char *puzzle_body);
+void fill_players(Puzzle *p, unsigned char *puzzle_body);
 Button vs_button_of_ws(Puzzle *p, Button btn);
 Player vs_player_of_ws(Puzzle *p, Player player);
 Vector2 vs_pos_of_ws(Puzzle *p, Vector2 pos);
+Puzzle puzzle_load(unsigned char *bytes);
 
 int main(void)
 {
@@ -127,21 +134,10 @@ int main(void)
         .mipmaps = 1,
     };
 
-    Puzzle puzzle = {
-        .player_case = case_init(64, sizeof *puzzle.player_case),
-        .cols = 10,
-        .rows = 10,
-        .cells = case_init(100, sizeof *puzzle.cells),
-        .button_case = case_init(64, sizeof *puzzle.button_case),
-        .padding = 30.f,
-        .clicked_button = -1,
-    };
+    Puzzle puzzle = puzzle_load(puzzle1);
     // case_push(puzzle.player_case, ((Player) { .pos = (Vector2) { 0.f, 0.f }, .state = PHYSICAL, .height = 1 } ));
     go.atlas = LoadTextureFromImage(atlas_img);
     go.puzzle = puzzle;
-    fill_cells(&puzzle);
-    fill_players(&puzzle);
-    fill_buttons(&go.puzzle);
 
 #if defined(PLATFORM_WEB)
     emscripten_set_main_loop(loop, 0, 1);
@@ -156,6 +152,24 @@ int main(void)
     UnloadTexture(go.atlas);
     CloseWindow();
     return 0;
+}
+
+Puzzle puzzle_load(unsigned char *bytes)
+{
+    Puzzle p = { 0 };
+    p.clicked_button = -1;
+    p.cols = bytes[0];
+    p.rows = bytes[1];
+    p.padding = bytes[2];
+    p.cells = case_init(p.cols * p.rows, sizeof *p.cells);
+    p.player_case = case_init(64, sizeof *p.player_case);
+    p.button_case = case_init(p.cols + p.rows, sizeof *p.button_case);
+
+    fill_cells(&p, &bytes[3]);
+    fill_players(&p, &bytes[3]);
+    fill_buttons(&p);
+
+    return p;
 }
 
 /**
@@ -288,7 +302,7 @@ void loop(void)
     EndDrawing();
 }
 
-void fill_cells(Puzzle *p)
+void fill_cells(Puzzle *p, unsigned char *puzzle_body)
 {
     case_len(p->cells) = 0;
 
@@ -300,7 +314,7 @@ void fill_cells(Puzzle *p)
                     .x = col,
                     .y = row,
                 },
-                .info = cell_map[row * p->cols + col],
+                .info = puzzle_body[row * p->cols + col],
             };
             case_push(p->cells, cell);
 
@@ -308,21 +322,21 @@ void fill_cells(Puzzle *p)
     }
 }
 
-void fill_players(Puzzle *p)
+void fill_players(Puzzle *p, unsigned char *puzzle_body)
 {
     case_len(p->player_case) = 0;
 
     size_t row, col;
     for (row = 0; row < p->rows; ++row) {
         for (col = 0; col < p->cols; ++col) {
-            if ((cell_map[row * p->cols + col] & 0b1100) == P) {
+            if ((puzzle_body[row * p->cols + col] & 0b1100) == P) {
                 INFO("Found player");
                 Player player = {
                     .pos = (Vector2) {
                         .x = col,
                         .y = row,
                     },
-                    .height = cell_map[row * p->cols + col],
+                    .height = puzzle_body[row * p->cols + col],
                     .state = PHYSICAL,
                 };
                 case_push(p->player_case, player);
