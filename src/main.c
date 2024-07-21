@@ -42,6 +42,7 @@ typedef enum {
 typedef struct {
     Vector2 pos;
     PlayerState state;
+    unsigned char height;
 } Player;
 
 typedef struct {
@@ -118,7 +119,7 @@ int main(void)
         .padding = 30.f,
         .clicked_button = -1,
     };
-    case_push(puzzle.player_case, ((Player) { .pos = (Vector2) { 0.f, 0.f }, .state = PHYSICAL } ));
+    case_push(puzzle.player_case, ((Player) { .pos = (Vector2) { 0.f, 0.f }, .state = PHYSICAL, .height = 1 } ));
     go.atlas = LoadTextureFromImage(atlas_img);
     go.puzzle = puzzle;
     fill_cells(&puzzle);
@@ -150,13 +151,20 @@ typedef enum {
     RIGHT = KEY_D,
 } Direction;
 
+int cell_height_at_pos(Puzzle *p, Vector2 pos)
+{
+    return p->cells[((int) (pos.y + 0.5f)) * p->cols + (int) (pos.x + 0.5f)].height;
+}
+
 /**
  * O(n)
  */
-bool is_valid_pos(Puzzle *p, Vector2 pos)
+bool is_valid_pos(Puzzle *p, Player player)
 {
+    Vector2 pos = player.pos;
     if (!(pos.x >= 0 && pos.x < p->cols)) { return false; }
     if (!(pos.y >= 0 && pos.y < p->rows)) { return false; }
+    if (cell_height_at_pos(p, pos) > player.height) { return false; }
 
     size_t i;
     for (i = 0; i < case_len(p->player_case); ++i) {
@@ -169,24 +177,24 @@ bool is_valid_pos(Puzzle *p, Vector2 pos)
     return true;
 }
 
-void move_square(Puzzle *p, Player *player, Direction dir)
+void move_player(Puzzle *p, Player *player, Direction dir)
 {
     // TODO play animation when can't move + when move
-    Vector2 new_pos = player->pos;
+    Player new_player = *player;
     switch (dir) {
-        case UP: { new_pos.y += -1; } break;
-        case DOWN: { new_pos.y += 1; } break;
-        case LEFT: { new_pos.x += -1; } break;
-        case RIGHT: { new_pos.x += 1; } break;
+        case UP: { new_player.pos.y += -1; } break;
+        case DOWN: { new_player.pos.y += 1; } break;
+        case LEFT: { new_player.pos.x += -1; } break;
+        case RIGHT: { new_player.pos.x += 1; } break;
             default: {
             WARNING("This function should not be run");
         } break;
     };
 
     // Check collisions
-    if (is_valid_pos(p, new_pos)) {
-        player->pos.x = new_pos.x;
-        player->pos.y = new_pos.y;
+    if (is_valid_pos(p, new_player)) {
+        new_player.height = cell_height_at_pos(p, new_player.pos);
+        memcpy(player, &new_player, sizeof new_player);
     }
 }
 
@@ -237,7 +245,7 @@ void loop(void)
         qsort(p->player_case, case_len(p->player_case), sizeof *(p->player_case), cmp_fn);
         size_t i;
         for (i = 0; i < case_len(go.puzzle.player_case); ++i) {
-            move_square(&go.puzzle, &go.puzzle.player_case[i], dir);
+            move_player(&go.puzzle, &go.puzzle.player_case[i], dir);
         }
     }
 
@@ -402,6 +410,7 @@ Player vs_player_of_ws(Puzzle *p, Player player)
             .y = player.pos.y * cell_width + p->rec.y,
         },
         .state = player.state,
+        .height = player.height,
     };
 }
 
@@ -427,6 +436,9 @@ int button_hover_id(Puzzle *p, Button *btn_case)
 #define MIRROR_RIGHT (1 << 3)
 #define MIRROR_PREVIEW (1 << 4)
 
+/**
+ * Should be lighter based on hight / darker based on depth
+ */
 void render_player(Puzzle *p, Player player);
 
 /**
@@ -465,16 +477,19 @@ void mirror_over_line(Puzzle *p, int button_id, int options)
             }
         }
 
-        if (is_valid_pos(p, mirrored)) {
+        Player mirrored_p;
+        memcpy(&mirrored_p, &p->player_case[i], sizeof mirrored_p);
+        mirrored_p.pos = mirrored;
+
+        if (is_valid_pos(p, mirrored_p)) {
+            mirrored_p.height = cell_height_at_pos(p, mirrored_p.pos);
             if (options & MIRROR_PREVIEW) {
-                // Vector2 size = vec2d_sub(*(Vector2 *) &p->rec.width, vs_btn.center);
-                // Draw rectangle over section
-                Player mirr_player = { .pos = mirrored, .state = PREVIEW };
-                case_push(p->player_case, mirr_player);
+                mirrored_p.state = PREVIEW;
+                case_push(p->player_case, mirrored_p);
             } else {
                 // In bound of puzzle
-                Player mirr_player = { .pos = mirrored, .state = PHYSICAL };
-                case_push(p->player_case, mirr_player);
+                mirrored_p.state = PHYSICAL;
+                case_push(p->player_case, mirrored_p);
                 INFO("added new at %.0f, %.0f", mirrored.x, mirrored.y);
             }
         }
