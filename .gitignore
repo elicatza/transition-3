@@ -4,4 +4,6 @@ design_document/*
 vendor/*
 !vendor/include/
 build
-assets
+assets/*
+!assets/atlas.sh
+!assets/atlas.h
