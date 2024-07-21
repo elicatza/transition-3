@@ -101,6 +101,7 @@ void fill_cells(Puzzle *p);
 void fill_players(Puzzle *p);
 Button vs_button_of_ws(Puzzle *p, Button btn);
 Player vs_player_of_ws(Puzzle *p, Player player);
+Vector2 vs_pos_of_ws(Puzzle *p, Vector2 pos);
 
 int main(void)
 {
@@ -200,7 +201,7 @@ void move_player(Puzzle *p, Player *player, Direction dir)
         } break;
     };
 
-    if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) {
+    if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT) || IsKeyDown(KEY_U)) {
         new_player.height += 1;
     }
     // Check collisions
@@ -380,6 +381,42 @@ void render_button(Puzzle *p, Button *btn)
     }
 }
 
+void render_height_lines(Puzzle *p)
+{
+    size_t row, col;
+    float cell_width = p->rec.width / p->cols;
+    for (row = 0; row < p->rows; ++row) {
+        for (col = 0; col < p->cols; ++col) {
+            Cell c = p->cells[row * p->cols + col];
+
+            if (case_len(p->cells) > (row + 1) * p->cols + col) {
+                // Has cell down
+                Cell cd = p->cells[(row + 1) * p->cols + col];
+                if (cd.pos.x != c.pos.x) continue;
+                if (c.height != cd.height) {
+                    Vector2 start = vs_pos_of_ws(p, cd.pos);
+                    Vector2 end = { start.x + cell_width, start. y};
+                    float diff = fabsf((float) c.height - cd.height);
+                    DrawLineEx(start, end, diff * 2.f, RED);
+                }
+            }
+
+            if (case_len(p->cells) > row * p->cols + col + 1) {
+                // Has cell Right
+                Cell cr = p->cells[row * p->cols + col + 1];
+                if (cr.pos.y != c.pos.y) continue;
+                if (c.height != cr.height) {
+                    Vector2 start = vs_pos_of_ws(p, cr.pos);
+                    Vector2 end = { start.x, start.y + cell_width};
+                    float diff = fabsf((float) c.height - cr.height);
+                    DrawLineEx(start, end, diff * 2.f, RED);
+                }
+            }
+
+        }
+    }
+}
+
 Vector2 vec2d_add(Vector2 a, Vector2 b)
 {
     return (Vector2) {
@@ -406,8 +443,18 @@ bool in_circle(Vector2 center, float radius, Vector2 point)
     return false;
 }
 
+Vector2 vs_pos_of_ws(Puzzle *p, Vector2 pos)
+{
+    float cell_width = p->rec.width / p->cols;
+    return (Vector2) {
+        .x = pos.x * cell_width + p->rec.x,
+        .y = pos.y * cell_width + p->rec.y,
+    };
+}
+
 /**
  * Converts from button in world space to button in view space
+ * TODO: convert to memcpy
  */
 Button vs_button_of_ws(Puzzle *p, Button btn)
 {
@@ -715,12 +762,14 @@ void render_puzzle(Puzzle *p)
 
 
 
-    if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) {
+    if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT) || IsKeyDown(KEY_U)) {
         DrawRectangleLinesEx(p->rec, 3.f, RED);
     } else {
         DrawRectangleLinesEx(p->rec, 3.f, GREEN);
     }
-
+    // INFO("KEY: %d", GetKeyPressed());
+    // TraceLog(LOG_INFO, "KEY: %d", GetKeyPressed());
+    render_height_lines(p);
 
     if (p->clicked_button != -1) {
         Button sel_ws = p->button_case[p->clicked_button];
