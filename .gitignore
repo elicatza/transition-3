@@ -1,9 +1,10 @@
 design_document/*
 !design_document/main.tex
-!design_document/main.pdf
+# !design_document/main.pdf
 vendor/*
 !vendor/include/
 build
 assets/*
 !assets/atlas.sh
 !assets/atlas.h
+.ccls-cache
