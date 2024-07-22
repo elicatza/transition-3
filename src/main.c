@@ -27,7 +27,7 @@
 
 typedef struct {
     Texture2D atlas;
-    Puzzle puzzle;
+    Puzzle *puzzle;
 } GO;
 
 GO go = { 0 };
@@ -71,7 +71,7 @@ int main(void)
         .mipmaps = 1,
     };
 
-    Puzzle puzzle = puzzle_load(puzzle1);
+    Puzzle *puzzle = load_puzzle(puzzle1);
     // case_push(puzzle.player_case, ((Player) { .pos = (Vector2) { 0.f, 0.f }, .state = PHYSICAL, .height = 1 } ));
     go.atlas = LoadTextureFromImage(atlas_img);
     go.puzzle = puzzle;
@@ -94,14 +94,14 @@ int main(void)
 
 void loop(void)
 {
-    Puzzle *p = &go.puzzle;
+    Puzzle *p = go.puzzle;
 
     update_puzzle(p);
 
     BeginDrawing();
 
     ClearBackground(RAYWHITE);
-    render_puzzle(&go.puzzle, go.atlas);
+    render_puzzle(p, go.atlas);
 
     EndDrawing();
 }
