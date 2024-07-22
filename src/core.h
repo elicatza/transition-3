@@ -14,8 +14,8 @@
 #define ERROR(fmt, ...) fprintf(stderr, "["ANSI_RED"ERROR"ANSI_RESET"] "fmt" (in %s at %s:%d)\n", ##__VA_ARGS__, __func__, __FILE__, __LINE__)
 #define ASSERT(cond, ...) { if (!(cond)) { ERROR(__VA_ARGS__); exit(1);} }
 
-#define MIN(a, b) (a) < (b) ? (a) : (b)
-#define MAX(a, b) (a) > (b) ? (a) : (b)
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 #include <stdint.h>
 typedef uint32_t u32;
