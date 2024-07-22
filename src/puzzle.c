@@ -26,6 +26,28 @@
 #define MIRROR_RIGHT (1 << 3)
 #define MIRROR_PREVIEW (1 << 4)
 
+/**
+ * Puzzle format
+ * Header: width, height, padding
+ * body cell map
+ */
+// static unsigned char puzzle1[] = { 
+unsigned char puzzle_array[1][103] = {
+    {
+        10, 10, 50,
+        1, 1, 1, 1, 1, 1, 1, 3,3|G,3,
+        1, 1, 0, 1, 1, 1, 1, 2, 3, 3,
+        1, 0, 0, 0, 1, 1, 1, 2, 2, 2,
+        1, 0, 0, 1, 1, 1, 1, 2, 2, 2,
+        1, 1, 1, 1, 1,1|P,1, 2, 2, 2,
+        1, 1, 1, 1, 1, 1, 1, 2, 2, 2,
+        1, 1, 2, 2, 1, 2,2|G,2, 3, 3,
+        2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
+        2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
+        2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
+    },
+};
+
 typedef enum {
     MIRROR,
     SPLIT,

@@ -4,9 +4,11 @@
 
 #include "core.h"
 #include "../assets/atlas.h"
+
 #define CASE_IMPLEMENTATION
 #include "case.h"
 
+#define NO_TEMPLATE
 #include "puzzle.h"
 
 
@@ -41,11 +43,12 @@
  * Then 4 bits for the light strength
  *
  * If ground: Next two bits are elevation / type
- * 0b00xx: empty space
+ * 0b000xx: empty space
  * 0b001xx: Elevation 1
  * 0b010xx: Elevation 2
  * 0b011xx: Elevation 3
  * 0b100xx: Player
+ * where xx is 0b00
  */
 
 enum {
@@ -67,14 +70,15 @@ enum {
  * Body: world format (len = width * height)
  *
  */
-#define R 0b0100
+#define G 0b0100  /* Regular ground height 1 */
+#define P 0b0100  /* Player init position */
 static u8 world1[] = {
     5, 5,
-    R, R, R, R, R,
-    R, R, 0, R, R,
-    R, R, R, R, R,
-    R, R, R, R, R,
-    R, R, R, R, R,
+    G, G, G, G, G,
+    G, G, 0, G, G,
+    G, G, G, G, G,
+    G, P, G, G, G,
+    G, G, G, G, G,
 };
 
 typedef enum {
@@ -119,24 +123,6 @@ void render_world(World *w);
 void free_world(World *w);
 
 
-/**
- * Puzzle format
- * Header: width, height, padding
- * body cell map
- */
-static unsigned char puzzle1[] = { 
-    10, 10, 50,
-    1, 1, 1, 1, 1, 1, 1, 3,3|G,3,
-    1, 1, 0, 1, 1, 1, 1, 2, 3, 3,
-    1, 0, 0, 0, 1, 1, 1, 2, 2, 2,
-    1, 0, 0, 1, 1, 1, 1, 2, 2, 2,
-    1, 1, 1, 1, 1,1|P,1, 2, 2, 2,
-    1, 1, 1, 1, 1, 1, 1, 2, 2, 2,
-    1, 1, 2, 2, 1, 2,2|G,2, 3, 3,
-    2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
-    2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
-    2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
-};
 
 
 void loop(void);
@@ -158,7 +144,7 @@ int main(void)
 
     go.atlas = LoadTextureFromImage(atlas_img);
     go.world = load_world(world1);
-    go.puzzle = load_puzzle(puzzle1);
+    go.puzzle = load_puzzle(puzzle_array[0]);
     go.state = PUZZLE;
 
 #if defined(PLATFORM_WEB)
