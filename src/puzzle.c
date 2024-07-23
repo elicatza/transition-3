@@ -10,7 +10,7 @@
 #define TEXTURE_BUTTON_OFFX 0
 #define TEXTURE_BUTTON_OFFY 1
 
-#define M_BLUE       CLITERAL(Color){ 0x55, 0xcd, 0xfc, 100 }     // Blue
+#define M_BLUE CLITERAL(Color){ 0x55, 0xcd, 0xfc, 100 }     // Blue
 
 
 /**

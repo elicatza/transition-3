@@ -4,100 +4,86 @@
 
 #include "core.h"
 #include "../assets/atlas.h"
-
 #define CASE_IMPLEMENTATION
 #include "case.h"
-
 #define NO_TEMPLATE
 #include "puzzle.h"
-
 
 #if defined(PLATFORM_WEB)
     #include <emscripten/emscripten.h>
 #endif
+
 
 #define ASPECT_RATIO (16.f / 9.f)
 #define WIDTH 800
 #define HEIGHT (WIDTH / ASPECT_RATIO)
 
 /**
- * World format
- * First two bits are ground type
- * 0b00: Ground
- * 0b01: interact
- * 0b10: light
- * 0b11: `reserved`
+ * New format
+ * 0bxxxx0000: physical {type1[empty, ground, blinds, bed, door, puzzle1, puzzle2, window](3), height(1)}
+ * 4 bits for type: [empty, ground blinds, bed, door, puzzle1, puzzle2, `reserved`]
+ * 2 bit for height: unwalkable, 1, 2, 3
+ * 2 bits reserved for textures
  *
- * If interact: Next two bits are interact type
- * 0b00xx: window blinds
- * 0b01xx: training puzzle
- * 0b10xx: bed
- * 0b11xx: door
- * 0b11xx: creative puzzles
- *
- * If light: Next two bits are light color
- * 0b00xx: blue
- * 0b01xx: white
- * 0b10xx: pink
- * 0b11xx: black
- * Then 4 bits for the light strength
- *
- * If ground: Next two bits are elevation / type
- * 0b00xx: empty space
- * 0b01xx: Regular ground
- * 0b10xx: Player spawn
- * 0b11xx: `reserved
- * where xx is 0b00
- *
- * Then two bits for elevation
- * 0b00xxxx: elevation 0
- * 0b01xxxx: elevation 1
- * 0b10xxxx: elevation 2
- * 0b11xxxx: elevation 3
+ * 0b0000xxxx: visual {2 type[empty, light, camera], 2 color, 4 brightness} (1)
+ * 2 bits type: [empty, spawn, camera, `reserved`]
+ * 2 bits color: [white, blue, pink, black]
+ * 4 bits for brightness: 0-15
  */
 
-enum CellType {
-    TGROUND = 0b00,
-    TINTERACT = 0b01,
-    TLIGHT = 0b10,
+/* Visual masks */
+#define MASK_PHYSICAL(a) ((a) & 0b11111111)
+#define MASK_PHYSICAL_T(a) ((a) & 0b00000111)
+#define MASK_HEIGHT(a) ((a) & 0b00011000)
+
+/* Visual masks */
+#define MASK_VISUAL(a) ((a) & (0b1111111 << 8))
+#define MASK_VISUAL_T(a) ((a) & (0b0000011 << 8))
+#define MASK_COLOR(a) ((a) & 0b00001100 << 8)
+#define MASK_BRIGHTNESS(a) ((a) & 0b11110000 << 8)
+
+enum PhysicalType {
+    PEMPTY = 0b000,   /* Don't render anything */
+    PGROUND = 0b001,  /* Walkable */
+    PBLINDS = 0b010,  /* -Energy +Light */
+    PBED = 0b011,     /* Restart day / spawn */
+    PDOOR = 0b100,    /* Finish when exit / Big puzzle */
+    PPUZZLE1 = 0b101, /* Puzzle for exercise */
+    PPUZZLE2 = 0b110, /* Puzzle for fun */
 };
 
-enum GrndType {
-    GRND_EMTPY = 0b0000,
-    GRND_NORMAL = 0b0100,
-    GRND_SPAWN = 0b1000,
+enum PHeight {
+    UNWALKABLE = 0b00 << 4,
+    H1         = 0b01 << 4,
+    H2         = 0b10 << 4,
+    H3         = 0b11 << 4,
 };
 
-enum LightType {
-    LIGHT_BLUE = 0b0000,
-    LIGHT_WHITE = 0b0100,
-    LIGHT_PINK = 0b1000,
-    LIGHT_BLACK = 0b1100,
+enum VisualType {
+    VEMPTY  = 0b00 << 8,  /* Don't render anything */
+    VSPAWN  = 0b01 << 8,  /* Spawn point */
+    VCAMERA = 0b10 << 8,  /* Camera center */
 };
 
-#define MASK_TYPE(a) ((a) & 0b11)
-#define MASK_INTERACT(a) ((a) & 0b1100)
-#define MASK_LIGHT(a) ((a) & 0b1100)
-#define MASK_LIGHT_BRIGHTNESS(a) ((a) & 0b11110000)
-#define MASK_GROUND(a) ((a) & 0b1100)
+#define S (PBED | H2 | VSPAWN)
+#define C (PGROUND | H2 | VCAMERA)
+#define G (PGROUND | H1 )
 
 /**
  * Header:
  * cols, rows
- *
  * Body: world format (len = width * height)
  *
  */
-#define G 0b0100  /* Regular ground height 1 */
-#define P 0b1000  /* Player init position */
-static u8 world1[] = {
+static u16 world1[] = {
     5, 5,
-    G, G, G, G, G,
-    G, G, 0, G, G,
-    G, G, G, G, G,
-    G, P, G, G, G,
-    G, G, G, G, G,
+    0, 0, 0, 0, 0,
+    0, C, G, G, 0,
+    0, G, S, G, 0,
+    0, G, G, G, 0,
+    0, 0, 0, 0, 0,
 };
+
 
 typedef enum {
     PUZZLE,
@@ -112,11 +98,12 @@ typedef struct U32x2 {
 
 typedef struct Player {
     U32x2 pos;
+    u8 height;
 } Player;
 
 typedef struct Cell {
     U32x2 pos;
-    u8 info;
+    u16 info;
 } Cell;
 
 typedef struct World {
@@ -124,8 +111,9 @@ typedef struct World {
     size_t cols;
     size_t rows;
     Cell *cell_case;
+    U32x2 camera_pos;
 
-    // Following are set at start of render function
+    // Following are set at start of render function and in view space
     float cell_width;
     Vector2 wpos;
     Vector2 wdim;
@@ -140,7 +128,7 @@ typedef struct {
 
 GO go = { 0 };
 
-World *load_world(u8 *byte_map);
+World *load_world(u16 *byte_map);
 void update_world(World *w);
 void render_world(World *w, Texture2D atlas);
 void free_world(World *w);
@@ -156,6 +144,8 @@ int main(void)
     int height = HEIGHT;
     SetConfigFlags(/* FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE | */ FLAG_MSAA_4X_HINT);
     InitWindow(width, height, "demo");
+    INFO("Spawn %X", S);
+    INFO("Ground %X", G);
 
     Image atlas_img = {
         .data = ATLAS_DATA,
@@ -229,27 +219,18 @@ void render_world_cells(World *w, Texture2D atlas)
         Vector2 dim;
         dim.x = w->cell_width;
         dim.y = w->cell_width;
-        // INFO("Pos %.2f, %.2f", vspos.x, vspos.y);
-        // INFO("dim %.2f, %.2f", dim.x, dim.y);
 
-        Color color;
-        switch ((enum CellType) MASK_TYPE(cell.info)) {
-            case TGROUND: { switch ((enum GrndType) MASK_GROUND(cell.info)) {
-                case GRND_SPAWN: { color = GREEN; } break;
-                case GRND_EMTPY: { color = GRAY; } break;
-                case GRND_NORMAL: { color = BROWN; } break;
-                default: { color = PURPLE; } break;
-            } break; } break;
-            case TLIGHT: { switch ((enum LightType) MASK_LIGHT(cell.info)) {
-                case LIGHT_BLUE: { color = BLUE; } break;
-                case LIGHT_WHITE: { color = WHITE; } break;
-                case LIGHT_PINK: { color = PINK; } break;
-                case LIGHT_BLACK: { color = BLACK; } break;
-                default: { color = PURPLE; } break;
-                } break; } break;
-            case TINTERACT: { color = ORANGE; } break;
-            default: { ASSERT(0, "invalid map value"); } break;
+        Color color = PURPLE;
+        switch ((enum PhysicalType) MASK_PHYSICAL_T(cell.info)) {
+            case (PEMPTY): { color = BLACK; } break;
+            case (PGROUND): { color = BROWN; } break;
+            case (PBLINDS): { color = RED; } break;
+            case (PBED): { color = BLUE; } break;
+            case (PDOOR): { color = ORANGE; } break;
+            case (PPUZZLE1): { color = YELLOW; } break;
+            case (PPUZZLE2): { color = VIOLET; } break;
         }
+        INFO("Physical %X", MASK_PHYSICAL_T(cell.info));
         DrawRectangleV(vspos, dim, color);
     }
 }
@@ -276,31 +257,33 @@ void render_world(World *w, Texture2D atlas)
     DrawRectangleLinesEx((Rectangle) { w->wpos.x, w->wpos.y, w->wdim.x, w->wdim.y }, 2.f, RED);
 }
 
-void fill_world(World *w, u8 *wbody)
+void fill_world(World *w, u16 *wbody)
 {
     size_t row, col;
     for (row = 0; row < w->rows; ++row) {
         for (col = 0; col < w->cols; ++col) {
-            u8 info = wbody[row * w->cols + col];
-            u8 type = MASK_TYPE(info);
-            u8 gtype = MASK_GROUND(info);
+            u16 info = wbody[row * w->cols + col];
+            u16 vtype = MASK_VISUAL_T(info);
+            switch ((enum VisualType) vtype) {
+                case VEMPTY: break;
+                case VSPAWN: {
+                    w->player.pos = (U32x2) { col, row };
+                    w->player.height = MASK_HEIGHT(info);
+                } break;
+                case VCAMERA: {
+                    w->camera_pos = (U32x2) { col, row };
+                } break;
 
-            if (type == TGROUND && gtype == GRND_SPAWN) {
-                Player p;
-                p.pos = (U32x2) { col, row };
-                w->player = p;
-                INFO("Added player");
             }
-
             Cell cell;
-            cell.info = info;
             cell.pos = (U32x2) { col, row };
+            cell.info = info;
             case_push(w->cell_case, cell);
         }
     }
 }
 
-World *load_world(u8 *wmap)
+World *load_world(u16 *wmap)
 {
     World *w = malloc(sizeof *w);
     size_t cols = *wmap; ++wmap;
