@@ -15,7 +15,7 @@
 
 
 #define ASPECT_RATIO (16.f / 9.f)
-#define WIDTH 600
+#define WIDTH 800
 #define HEIGHT (WIDTH / ASPECT_RATIO)
 
 /**
@@ -64,8 +64,19 @@ enum VisualType {
     VSPAWN  = 0b01 << 8,  /* Spawn point */
 };
 
+enum VisualColor {
+    VWHITE = 0b00 << 10,
+    VBLUE = 0b01 << 10,
+    VPINK = 0b10 << 10,
+    VBLACK = 0b11 << 10,
+};
+
+#define VSTRENGTH(a) ((a) << 12)
+
 #define S (PBED | H2 | VSPAWN)
 #define G (PGROUND | H1 )
+#define D (PDOOR | H2 )
+#define Ld (UNWALKABLE | VWHITE | VSTRENGTH(0b0111))
 
 /**
  * Header:
@@ -74,12 +85,14 @@ enum VisualType {
  *
  */
 static u16 world1[] = {
-    5, 5,
-    0, 0, 0, 0, G,
-    0, G, G, G, 0,
-    0, S, G, G, 0,
-    0, G, G, G, 0,
-    G, 0, 0, 0, 0,
+    6, 7,
+    0, 0, 0, 0, D, 0,
+    G, G, G, G, G, G,
+    G, G, G, G, G, G,
+    S, S, G, G, G, G,
+    G, G, G, G, G, G,
+    G, G, G, G, G, G,
+    0, 0, Ld,Ld,0, 0,
 };
 
 
@@ -304,7 +317,7 @@ void render_world_height_lines(World *w)
                 if (cd.pos.x != c.pos.x) continue;
                 if (c_height != cd_height) {
                     Vector2 start = vspos_of_ws(w, cd.pos);
-                    Vector2 end = { start.x + cell_width, start. y};
+                    Vector2 end = { start.x + cell_width, start.y};
                     float diff = fabsf((float) c_height - cd_height);
                     DrawLineEx(start, end, diff * 2.f, RED);
                 }
