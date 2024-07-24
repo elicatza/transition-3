@@ -33,8 +33,8 @@
 
 /* Visual masks */
 #define MASK_PHYSICAL(a) ((a) & 0b11111111)
-#define MASK_PHYSICAL_T(a) ((a) & 0b00000111)
-#define MASK_HEIGHT(a) ((a) & 0b00011000)
+#define MASK_PHYSICAL_T(a) ((a) & 0b00001111)
+#define MASK_HEIGHT(a) ((a) & 0b000110000)
 
 /* Visual masks */
 #define MASK_VISUAL(a) ((a) & (0b1111111 << 8))
@@ -65,7 +65,6 @@ enum VisualType {
 };
 
 #define S (PBED | H2 | VSPAWN)
-#define C (PGROUND | H2 | VCAMERA)
 #define G (PGROUND | H1 )
 
 /**
@@ -78,7 +77,7 @@ static u16 world1[] = {
     5, 5,
     0, 0, 0, 0, G,
     0, G, G, G, 0,
-    0, G, G, G, 0,
+    0, S, G, G, 0,
     0, G, G, G, 0,
     G, 0, 0, 0, 0,
 };
@@ -194,9 +193,61 @@ void loop(void)
     EndDrawing();
 }
 
+Cell cell_at_pos(World *w, U32x2 pos)
+{
+    return w->cell_case[pos.y * w->cols + pos.x];
+}
+
+u8 height_at_pos(World *w, U32x2 pos)
+{
+    return MASK_HEIGHT(w->cell_case[pos.y * w->cols + pos.x].info) >> 4;
+}
+
+bool is_valid_wspos(World *w, U32x2 pos, u32 height)
+{
+    if (pos.x < 0 || pos.x >= w->cols) {
+        return false;
+    }
+    if (pos.y < 0 || pos.y >= w->rows) {
+        return false;
+    }
+    Cell cell = cell_at_pos(w, pos);
+    u8 cell_height = height_at_pos(w, pos);
+    INFO("CH %d > %d", cell_height, height);
+    INFO("H2 %d", H2 >> 4);
+    if (cell_height == UNWALKABLE) {
+        return false;
+    }
+    if (cell_height > height) {
+        return false;
+    }
+
+    return true;
+}
+
+
 void update_world(World *w)
 {
-    (void) w;
+    Player new_p = w->player;
+    if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) {
+        new_p.pos.y += -1;
+    } else if (IsKeyPressed(KEY_A) || IsKeyPressed(KEY_LEFT)) {
+        new_p.pos.x += -1;
+    } else if (IsKeyPressed(KEY_S) || IsKeyPressed(KEY_DOWN)) {
+        new_p.pos.y += 1;
+    } else if (IsKeyPressed(KEY_D) || IsKeyPressed(KEY_RIGHT)) {
+        new_p.pos.x += 1;
+    }
+
+    if (memcmp(&new_p, &w->player.pos, sizeof new_p) != 0) {
+        if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT) || IsKeyDown(KEY_U)) {
+            new_p.height += 1;
+        }
+        if (is_valid_wspos(w, new_p.pos, new_p.height)) {
+            w->player = new_p;
+            w->player.height = height_at_pos(w, new_p.pos);
+        }
+    }
 }
 
 Vector2 vspos_of_ws(World *w, U32x2 ws)
@@ -231,6 +282,12 @@ void render_world_cells(World *w, Texture2D atlas)
     }
 }
 
+void render_world_player(World *w)
+{
+    Vector2 vs_pos = vspos_of_ws(w, w->player.pos);
+    DrawRectangleV(vs_pos, (Vector2) { w->cell_width, w->cell_width }, PINK);
+}
+
 void render_world(World *w, Texture2D atlas)
 {
     float width = GetScreenWidth();
@@ -249,6 +306,7 @@ void render_world(World *w, Texture2D atlas)
 
 
     render_world_cells(w, atlas);
+    render_world_player(w);
     DrawRectangleLinesEx((Rectangle) { w->wpos.x, w->wpos.y, w->wdim.x, w->wdim.y }, 2.f, RED);
 }
 
@@ -263,7 +321,7 @@ void fill_world(World *w, u16 *wbody)
                 case VEMPTY: break;
                 case VSPAWN: {
                     w->player.pos = (U32x2) { col, row };
-                    w->player.height = MASK_HEIGHT(info);
+                    w->player.height = MASK_HEIGHT(info) >> 4;
                 } break;
             }
             Cell cell;
