@@ -288,6 +288,45 @@ void render_world_player(World *w)
     DrawRectangleV(vs_pos, (Vector2) { w->cell_width, w->cell_width }, PINK);
 }
 
+void render_world_height_lines(World *w)
+{
+    size_t row, col;
+    float cell_width = w->wdim.x / w->cols;
+    for (row = 0; row < w->rows; ++row) {
+        for (col = 0; col < w->cols; ++col) {
+            Cell c = w->cell_case[row * w->cols + col];
+            u8 c_height = height_at_pos(w, (U32x2) { col, row });
+
+            if (case_len(w->cell_case) > (row + 1) * w->cols + col) {
+                // Has cell down
+                Cell cd = w->cell_case[(row + 1) * w->cols + col];
+                u8 cd_height = height_at_pos(w, (U32x2) { col, row + 1 });
+                if (cd.pos.x != c.pos.x) continue;
+                if (c_height != cd_height) {
+                    Vector2 start = vspos_of_ws(w, cd.pos);
+                    Vector2 end = { start.x + cell_width, start. y};
+                    float diff = fabsf((float) c_height - cd_height);
+                    DrawLineEx(start, end, diff * 2.f, RED);
+                }
+            }
+
+            if (case_len(w->cell_case) > row * w->cols + col + 1) {
+                // Has cell Right
+                Cell cr = w->cell_case[row * w->cols + col + 1];
+                u8 cr_height = height_at_pos(w, (U32x2) { col + 1, row });
+                if (cr.pos.y != c.pos.y) continue;
+                if (c_height != cr_height) {
+                    Vector2 start = vspos_of_ws(w, cr.pos);
+                    Vector2 end = { start.x, start.y + cell_width};
+                    float diff = fabsf((float) c_height - cr_height);
+                    DrawLineEx(start, end, diff * 2.f, RED);
+                }
+            }
+
+        }
+    }
+}
+
 void render_world(World *w, Texture2D atlas)
 {
     float width = GetScreenWidth();
@@ -307,6 +346,7 @@ void render_world(World *w, Texture2D atlas)
 
     render_world_cells(w, atlas);
     render_world_player(w);
+    render_world_height_lines(w);
     DrawRectangleLinesEx((Rectangle) { w->wpos.x, w->wpos.y, w->wdim.x, w->wdim.y }, 2.f, RED);
 }
 
