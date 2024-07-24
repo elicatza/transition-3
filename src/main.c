@@ -21,7 +21,7 @@
 /**
  * New format
  * 0bxxxx0000: physical {type1[empty, ground, blinds, bed, door, puzzle1, puzzle2, window](3), height(1)}
- * 4 bits for type: [empty, ground, blinds, bed, door, puzzle1, puzzle2, `reserved`]
+ * 4 bits for type: [empty, ground, blinds, bed, door, puzzle1, puzzle2, window]
  * 2 bit for height: unwalkable, 1, 2, 3
  * 2 bits reserved
  *
@@ -50,6 +50,7 @@ enum PhysicalType {
     PDOOR = 0b100,    /* Finish when exit / Big puzzle */
     PPUZZLE1 = 0b101, /* Puzzle for exercise */
     PPUZZLE2 = 0b110, /* Puzzle for fun */
+    PWINDOW = 0b111,  /* Window for seeing things */
 };
 
 enum PHeight {
@@ -76,7 +77,7 @@ enum VisualColor {
 #define S (PBED | H2 | VSPAWN)
 #define G (PGROUND | H1 )
 #define D (PDOOR | H2 )
-#define Ld (UNWALKABLE | VWHITE | VSTRENGTH(0b0111))
+#define Ld (PWINDOW | UNWALKABLE | VBLUE | VSTRENGTH(0b0111))
 
 /**
  * Header:
@@ -91,10 +92,12 @@ static u16 world1[] = {
     G, G, G, G, G, G,
     S, S, G, G, G, G,
     G, G, G, G, G, G,
-    G, G, G, G, G, G,
-    0, 0, Ld,Ld,0, 0,
+    G, G, G, G, G, Ld,
+    0, 0, G ,G, 0, 0,
 };
 
+#define C_BLUE CLITERAL(Color){ 0x55, 0xcd, 0xfc, 0xff }
+#define C_PINK CLITERAL(Color){ 0xf7, 0xa8, 0xb8, 0xff }
 
 typedef enum {
     PUZZLE,
@@ -115,6 +118,7 @@ typedef struct Player {
 typedef struct Cell {
     U32x2 pos;
     u16 info;
+    Color color;
 } Cell;
 
 typedef struct World {
@@ -211,10 +215,38 @@ Cell cell_at_pos(World *w, U32x2 pos)
     return w->cell_case[pos.y * w->cols + pos.x];
 }
 
-u8 height_at_pos(World *w, U32x2 pos)
+u8 get_height_at_pos(World *w, U32x2 pos)
 {
     return MASK_HEIGHT(w->cell_case[pos.y * w->cols + pos.x].info) >> 4;
 }
+
+u8 get_brightness_at_pos(World *w, U32x2 pos)
+{
+    return MASK_BRIGHTNESS(w->cell_case[pos.y * w->cols + pos.x].info) >> 12;
+}
+
+Color get_color_at_pos(World *w, U32x2 pos)
+{
+    enum VisualColor color = MASK_COLOR(w->cell_case[pos.y * w->cols + pos.x].info);
+    switch (color) {
+        case VWHITE: { return WHITE; } break;
+        case VBLUE: { return C_BLUE; } break;
+        case VPINK: { return C_PINK; } break;
+        case VBLACK: { return BLACK; } break;
+    };
+}
+
+Color get_color_at_i(World *w, size_t i)
+{
+    enum VisualColor color = MASK_COLOR(w->cell_case[i].info);
+    switch (color) {
+        case VWHITE: { return WHITE; } break;
+        case VBLUE: { return C_BLUE; } break;
+        case VPINK: { return C_PINK; } break;
+        case VBLACK: { return BLACK; } break;
+    };
+}
+
 
 bool is_valid_wspos(World *w, U32x2 pos, u32 height)
 {
@@ -225,9 +257,7 @@ bool is_valid_wspos(World *w, U32x2 pos, u32 height)
         return false;
     }
     Cell cell = cell_at_pos(w, pos);
-    u8 cell_height = height_at_pos(w, pos);
-    INFO("CH %d > %d", cell_height, height);
-    INFO("H2 %d", H2 >> 4);
+    u8 cell_height = get_height_at_pos(w, pos);
     if (cell_height == UNWALKABLE) {
         return false;
     }
@@ -238,6 +268,72 @@ bool is_valid_wspos(World *w, U32x2 pos, u32 height)
     return true;
 }
 
+/**
+ * @param intencity value from (0, 15)
+ */
+Color blend(Color main, Color blend, float intencity)
+{
+    return (Color) {
+        .r = (main.r + intencity * blend.r) / (1.f + intencity),
+        .g = (main.g + intencity * blend.g) / (1.f + intencity),
+        .b = (main.b + intencity * blend.b) / (1.f + intencity),
+        .a = (main.a + intencity * blend.a) / (1.f + intencity),
+    };
+}
+
+Color apply_shade(Color c, float factor)
+{
+    return (Color) {
+        .a = c.a,
+        .r = c.r * factor,
+        .g = c.g * factor,
+        .b = c.b * factor,
+    };
+}
+
+Color apply_tint(Color c, u32 lightness)
+{
+    float factor = 0.5 + (lightness / 30.f);
+    return (Color) {
+        .r = c.r + ((255 - c.r) * factor),
+        .g = c.g + ((255 - c.g) * factor),
+        .b = c.b + ((255 - c.b) * factor),
+        .a = c.a,
+    };
+}
+
+
+void apply_lighting(World *w)
+{
+    size_t col, row;
+    for (row = 0; row < w->rows; ++row) {
+        for (col = 0; col < w->cols; ++col) {
+            U32x2 pos = { col, row };
+            u8 brightness = get_brightness_at_pos(w, pos);
+            Color color = get_color_at_pos(w, pos);
+            if (brightness) {
+                int b = brightness;
+                int x, y;
+                for (x = -b; x <= b; ++x) {
+                    for (y = -b; y <= b; ++y) {
+                        int val = abs(x) + abs(y);
+                        if (val < b) {
+                            size_t i = row * w->cols + col;
+                            int new_x = col + x;
+                            int new_y = row + y;
+                            if (new_x >= 0 && new_x < w->cols && new_y >= 0 && new_y < w->rows) {
+                                size_t new_i = new_y * w->cols + new_x;
+                                Color old = w->cell_case[new_i].color;
+                                w->cell_case[new_i].color = blend(w->cell_case[new_i].color, color, b - val);
+                                old = w->cell_case[new_i].color;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 void update_world(World *w)
 {
@@ -258,9 +354,15 @@ void update_world(World *w)
         }
         if (is_valid_wspos(w, new_p.pos, new_p.height)) {
             w->player = new_p;
-            w->player.height = height_at_pos(w, new_p.pos);
+            w->player.height = get_height_at_pos(w, new_p.pos);
         }
     }
+
+    size_t i;
+    for (i = 0; i < case_len(w->cell_case); ++i) {
+        w->cell_case[i].color = WHITE;
+    }
+    apply_lighting(w);
 }
 
 Vector2 vspos_of_ws(World *w, U32x2 ws)
@@ -286,11 +388,18 @@ void render_world_cells(World *w, Texture2D atlas)
             case (PEMPTY): { color = BLACK; } break;
             case (PGROUND): { color = BROWN; } break;
             case (PBLINDS): { color = RED; } break;
+            case (PWINDOW): { color = WHITE; } break;
             case (PBED): { color = BLUE; } break;
             case (PDOOR): { color = ORANGE; } break;
             case (PPUZZLE1): { color = YELLOW; } break;
             case (PPUZZLE2): { color = VIOLET; } break;
         }
+        // cell.lighting = 0.5 + (lightness / 30.f);
+        // color = blend(color, C_BLUE, cell.lighting + 5);
+        // color = apply_tint(color, cell.lighting);
+        // color = lerp(color, (Color) { 0, 0, 0, 255 }, 0.5 + (cell.lighting / 30.f));
+        color = blend(color, cell.color, 3);
+        // color = apply_shade(color, 0.7f);
         DrawRectangleV(vspos, dim, color);
     }
 }
@@ -308,12 +417,12 @@ void render_world_height_lines(World *w)
     for (row = 0; row < w->rows; ++row) {
         for (col = 0; col < w->cols; ++col) {
             Cell c = w->cell_case[row * w->cols + col];
-            u8 c_height = height_at_pos(w, (U32x2) { col, row });
+            u8 c_height = get_height_at_pos(w, (U32x2) { col, row });
 
             if (case_len(w->cell_case) > (row + 1) * w->cols + col) {
                 // Has cell down
                 Cell cd = w->cell_case[(row + 1) * w->cols + col];
-                u8 cd_height = height_at_pos(w, (U32x2) { col, row + 1 });
+                u8 cd_height = get_height_at_pos(w, (U32x2) { col, row + 1 });
                 if (cd.pos.x != c.pos.x) continue;
                 if (c_height != cd_height) {
                     Vector2 start = vspos_of_ws(w, cd.pos);
@@ -326,7 +435,7 @@ void render_world_height_lines(World *w)
             if (case_len(w->cell_case) > row * w->cols + col + 1) {
                 // Has cell Right
                 Cell cr = w->cell_case[row * w->cols + col + 1];
-                u8 cr_height = height_at_pos(w, (U32x2) { col + 1, row });
+                u8 cr_height = get_height_at_pos(w, (U32x2) { col + 1, row });
                 if (cr.pos.y != c.pos.y) continue;
                 if (c_height != cr_height) {
                     Vector2 start = vspos_of_ws(w, cr.pos);
@@ -340,6 +449,7 @@ void render_world_height_lines(World *w)
     }
 }
 
+
 void render_world(World *w, Texture2D atlas)
 {
     float width = GetScreenWidth();
@@ -351,11 +461,10 @@ void render_world(World *w, Texture2D atlas)
 
     w->cell_width = MIN(width / w->cols, height / w->rows);
 
-    w->wpos.x = (max_dim - height) / 2.f;
-    w->wpos.y = (max_dim - width) / 2.f;
-    w->wdim.x = min_dim;
-    w->wdim.y = min_dim;
-
+    w->wpos.x = (max_dim - height) / 2.f + (w->cell_width * (MAX(w->rows, w->cols) - w->cols) / 2.f);
+    w->wpos.y = (max_dim - width) / 2.f + (w->cell_width * (MAX(w->rows, w->cols) - w->rows) / 2.f);
+    w->wdim.x = w->cell_width * w->cols;
+    w->wdim.y = w->cell_width * w->rows;
 
     render_world_cells(w, atlas);
     render_world_player(w);
@@ -380,6 +489,8 @@ void fill_world(World *w, u16 *wbody)
             Cell cell;
             cell.pos = (U32x2) { col, row };
             cell.info = info;
+            // cell.lighting = 0;
+            cell.color = WHITE;
             case_push(w->cell_case, cell);
         }
     }
