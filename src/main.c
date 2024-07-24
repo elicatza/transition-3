@@ -15,18 +15,18 @@
 
 
 #define ASPECT_RATIO (16.f / 9.f)
-#define WIDTH 800
+#define WIDTH 600
 #define HEIGHT (WIDTH / ASPECT_RATIO)
 
 /**
  * New format
  * 0bxxxx0000: physical {type1[empty, ground, blinds, bed, door, puzzle1, puzzle2, window](3), height(1)}
- * 4 bits for type: [empty, ground blinds, bed, door, puzzle1, puzzle2, `reserved`]
+ * 4 bits for type: [empty, ground, blinds, bed, door, puzzle1, puzzle2, `reserved`]
  * 2 bit for height: unwalkable, 1, 2, 3
- * 2 bits reserved for textures
+ * 2 bits reserved
  *
- * 0b0000xxxx: visual {2 type[empty, light, camera], 2 color, 4 brightness} (1)
- * 2 bits type: [empty, spawn, camera, `reserved`]
+ * 0b0000xxxx: visual {2 type[empty, light, 2`reserved], 2 color, 4 brightness} (1)
+ * 2 bits type: [empty, spawn, `reserved`, `reserved`]
  * 2 bits color: [white, blue, pink, black]
  * 4 bits for brightness: 0-15
  */
@@ -62,7 +62,6 @@ enum PHeight {
 enum VisualType {
     VEMPTY  = 0b00 << 8,  /* Don't render anything */
     VSPAWN  = 0b01 << 8,  /* Spawn point */
-    VCAMERA = 0b10 << 8,  /* Camera center */
 };
 
 #define S (PBED | H2 | VSPAWN)
@@ -77,11 +76,11 @@ enum VisualType {
  */
 static u16 world1[] = {
     5, 5,
-    0, 0, 0, 0, 0,
-    0, C, G, G, 0,
-    0, G, S, G, 0,
+    0, 0, 0, 0, G,
     0, G, G, G, 0,
-    0, 0, 0, 0, 0,
+    0, G, G, G, 0,
+    0, G, G, G, 0,
+    G, 0, 0, 0, 0,
 };
 
 
@@ -144,8 +143,6 @@ int main(void)
     int height = HEIGHT;
     SetConfigFlags(/* FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE | */ FLAG_MSAA_4X_HINT);
     InitWindow(width, height, "demo");
-    INFO("Spawn %X", S);
-    INFO("Ground %X", G);
 
     Image atlas_img = {
         .data = ATLAS_DATA,
@@ -230,27 +227,25 @@ void render_world_cells(World *w, Texture2D atlas)
             case (PPUZZLE1): { color = YELLOW; } break;
             case (PPUZZLE2): { color = VIOLET; } break;
         }
-        INFO("Physical %X", MASK_PHYSICAL_T(cell.info));
         DrawRectangleV(vspos, dim, color);
     }
 }
 
 void render_world(World *w, Texture2D atlas)
 {
-    // Figure out where player is.
-    // Two approaches:
-    //   Draw world around player
-    //   Draw rooms (static camera) More control over rendering + coherent
+    float width = GetScreenWidth();
+    float height = GetScreenHeight();
 
-    int width = GetScreenWidth();
-    int height = GetScreenHeight();
     int min_dim = MIN(width, height);
+    int max_dim = MAX(width, height);
 
-    w->wpos.x = (width - min_dim) / 2.f;
-    w->wpos.y = (height - min_dim) / 2.f;
+
+    w->cell_width = MIN(width / w->cols, height / w->rows);
+
+    w->wpos.x = (max_dim - height) / 2.f;
+    w->wpos.y = (max_dim - width) / 2.f;
     w->wdim.x = min_dim;
     w->wdim.y = min_dim;
-    w->cell_width = (float) min_dim / (float) MAX(w->rows, w->cols);
 
 
     render_world_cells(w, atlas);
@@ -270,10 +265,6 @@ void fill_world(World *w, u16 *wbody)
                     w->player.pos = (U32x2) { col, row };
                     w->player.height = MASK_HEIGHT(info);
                 } break;
-                case VCAMERA: {
-                    w->camera_pos = (U32x2) { col, row };
-                } break;
-
             }
             Cell cell;
             cell.pos = (U32x2) { col, row };
