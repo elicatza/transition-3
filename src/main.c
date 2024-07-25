@@ -17,6 +17,9 @@
 #define ASPECT_RATIO (16.f / 9.f)
 #define WIDTH 800
 #define HEIGHT (WIDTH / ASPECT_RATIO)
+#define PADDING 50.f
+
+#define MAX_ENERGY 1.f
 
 /**
  * New format
@@ -158,6 +161,10 @@ typedef struct {
     Puzzle *puzzle;
     World *world;
     GameState state;
+    float energy;
+    float energy_max;
+    float pain;
+    float pain_max;
 } GO;
 
 GO go = { 0 };
@@ -192,6 +199,10 @@ int main(void)
     go.world = load_world(0, 4);
     go.puzzle = load_puzzle(puzzle_array[0]);
     go.state = WORLD;
+    go.energy = 0.3f;
+    go.energy_max = 0.3f;
+    go.pain = 0.2f;
+    go.pain_max = 1.f;
 
 #if defined(PLATFORM_WEB)
     emscripten_set_main_loop(loop, 0, 1);
@@ -476,11 +487,70 @@ void render_world_height_lines(World *w)
     }
 }
 
+void render_hud(World *w, Texture2D atlas)
+{
+    (void) atlas;
+
+    float s_width = w->wpos.x + w->wdim.x;
+    float s_height = GetScreenHeight();
+    float padx = PADDING * 0.1;
+    float ysec = w->wdim.y * (1.f / 9.f);
+    DrawRectangleRec((Rectangle) {
+        .width = PADDING,
+        .height = w->wdim.y,
+        .x = w->wpos.x + w->wdim.x,
+        .y = 0,
+    }, GRAY);
+
+
+    DrawRectangleLinesEx((Rectangle) {
+        .width = PADDING - 2.f * padx,
+        .height = 3 * (go.energy_max / MAX_ENERGY) * ysec,
+        .x = w->wpos.x + w->wdim.x + padx,
+        .y = ysec + 3 * (1.f - (go.energy_max / MAX_ENERGY)) * ysec,
+    }, 2.f, C_BLUE);
+
+    DrawRectangleRec((Rectangle) {
+        .width = PADDING - 2.f * padx,
+        .height = 3 * (go.energy / MAX_ENERGY) * ysec,
+        .x = w->wpos.x + w->wdim.x + padx,
+        .y = ysec + 3 * (1.f - (go.energy / MAX_ENERGY)) * ysec,
+    }, C_BLUE);
+
+    DrawRectangleLinesEx((Rectangle) {
+        .width = PADDING - 2.f * padx,
+        .height = 3 * ysec,
+        .x = w->wpos.x + w->wdim.x + padx,
+        .y = ysec,
+    }, 2.f, BLACK);
+
+    DrawText("Energy", w->wpos.x + w->wdim.x + padx, ysec * 0.5f, 12.f, C_BLUE);
+
+    DrawRectangleRec((Rectangle) {
+        .width = PADDING - 2.f * padx,
+        .height = 3 * (go.pain / go.pain_max) * ysec,
+        .x = w->wpos.x + w->wdim.x + padx,
+        .y = 5 * ysec + 3 * (1.f - (go.pain / go.pain_max)) * ysec,
+    }, C_PINK);
+
+    DrawRectangleLinesEx((Rectangle) {
+        .width = PADDING - 2.f * padx,
+        .height = 3 * ysec,
+        .x = w->wpos.x + w->wdim.x + padx,
+        .y = 5 * ysec,
+    }, 2.f, BLACK);
+
+    DrawText("Pain", w->wpos.x + w->wdim.x + padx, 4 * ysec + ysec * 0.5f, 12.f, C_PINK);
+}
 
 void render_world(World *w, Texture2D atlas)
 {
-    float width = GetScreenWidth();
-    float height = GetScreenHeight();
+    float s_width = GetScreenWidth();
+    float s_height = GetScreenHeight();
+    float width = s_width - PADDING;
+    float height = s_height;
+    float padx = PADDING;
+    float pady = 0.f;
 
     int min_dim = MIN(width, height);
     int max_dim = MAX(width, height);
@@ -488,14 +558,15 @@ void render_world(World *w, Texture2D atlas)
 
     w->cell_width = MIN(width / w->cols, height / w->rows);
 
-    w->wpos.x = (max_dim - height) / 2.f + (w->cell_width * (MAX(w->rows, w->cols) - w->cols) / 2.f);
-    w->wpos.y = (max_dim - width) / 2.f + (w->cell_width * (MAX(w->rows, w->cols) - w->rows) / 2.f);
+    w->wpos.x = (max_dim - height) / 2.f + (w->cell_width * (MAX(w->rows, w->cols) - w->rows) / 2.f) + padx / 2.f;
+    w->wpos.y = (max_dim - width) / 2.f + (w->cell_width * (MAX(w->rows, w->cols) - w->rows) / 2.f) + pady / 2.f;
     w->wdim.x = w->cell_width * w->cols;
     w->wdim.y = w->cell_width * w->rows;
 
     render_world_cells(w, atlas);
     render_world_player(w);
     render_world_height_lines(w);
+    render_hud(w, atlas);
     DrawRectangleLinesEx((Rectangle) { w->wpos.x, w->wpos.y, w->wdim.x, w->wdim.y }, 2.f, RED);
 }
 
