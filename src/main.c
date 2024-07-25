@@ -23,7 +23,7 @@
  * 0bxxxx0000: physical {type1[empty, ground, blinds, bed, door, puzzle1, puzzle2, window](3), height(1)}
  * 4 bits for type: [empty, ground, blinds, bed, door, puzzle1, puzzle2, window]
  * 2 bit for height: unwalkable, 1, 2, 3
- * 2 bits reserved
+ * 2 bits reserved for metadata
  *
  * 0b0000xxxx: visual {2 type[empty, light, 2`reserved], 2 color, 4 brightness} (1)
  * 2 bits type: [empty, spawn, `reserved`, `reserved`]
@@ -34,7 +34,8 @@
 /* Visual masks */
 #define MASK_PHYSICAL(a) ((a) & 0b11111111)
 #define MASK_PHYSICAL_T(a) ((a) & 0b00001111)
-#define MASK_HEIGHT(a) ((a) & 0b000110000)
+#define MASK_HEIGHT(a) ((a) & 0b00110000)
+#define MASK_META(a) ((a) & 0b11000000)
 
 /* Visual masks */
 #define MASK_VISUAL(a) ((a) & (0b1111111 << 8))
@@ -73,10 +74,12 @@ enum VisualColor {
 };
 
 #define VSTRENGTH(a) ((a) << 12)
+#define PMETA(a) ((a) <<  6)
 
 #define S (PBED | H2 | VSPAWN)
-#define G (PGROUND | H1 )
-#define D (PDOOR | H2 )
+#define G (PGROUND | H1)
+#define D0 (PDOOR | H2 | PMETA(0b00))
+#define D1 (PDOOR | H2 | PMETA(0b01))
 #define Ld (PWINDOW | UNWALKABLE | VWHITE | VSTRENGTH(0b1111))
 #define Lb (PWINDOW | UNWALKABLE | VPINK | VSTRENGTH(0b0011))
 
@@ -86,15 +89,29 @@ enum VisualColor {
  * Body: world format (len = width * height)
  *
  */
-static u16 world1[] = {
-    6, 7,
-    0, 0, 0, 0, D, 0,
-    G, G, G, G, G, G,
-    G, G, G, G, G, G,
-    S, S, G, G, G, G,
-    G, G, G, G, G, G,
-    G, G, G, G, G, G,
-    0, 0, Ld,Ld,0, 0,
+static u16 worlds[2][103] = {
+    {
+        6, 7,
+        0, 0, 0, 0, D1, 0,
+        G, G, G, G, G, G,
+        G, G, G, G, G, G,
+        S, S, G, G, G, G,
+        G, G, G, G, G, G,
+        G, G, G, G, G, G,
+        0, 0, Ld,Ld,0, 0,
+    },
+    {
+        6, 9,
+        0, 0, 0, 0, 0, 0,
+        0, G, G, G, G, G,
+        0, G, G, G, G, G,
+        0, G, G, G, G, G,
+        0, G, G, G, G, G,
+        0, S, G, G, G, G,
+        0, G, G, G, G, G,
+        0, G, G, G, G, G,
+        0, 0, 0, 0, D0, 0,
+    }
 };
 
 #define C_BLUE CLITERAL(Color){ 0x55, 0xcd, 0xfc, 0xff }
@@ -128,6 +145,7 @@ typedef struct World {
     size_t rows;
     Cell *cell_case;
     U32x2 camera_pos;
+    u16 world_id;
 
     // Following are set at start of render function and in view space
     float cell_width;
@@ -144,7 +162,8 @@ typedef struct {
 
 GO go = { 0 };
 
-World *load_world(u16 *byte_map);
+/* Door 0, 1, 2, 3, spawnpoint */
+World *load_world(u16 world_id, u8 spawn);
 void update_world(World *w);
 void render_world(World *w, Texture2D atlas);
 void free_world(World *w);
@@ -170,7 +189,7 @@ int main(void)
     };
 
     go.atlas = LoadTextureFromImage(atlas_img);
-    go.world = load_world(world1);
+    go.world = load_world(0, 4);
     go.puzzle = load_puzzle(puzzle_array[0]);
     go.state = WORLD;
 
@@ -186,6 +205,7 @@ int main(void)
 
     UnloadTexture(go.atlas);
     free_puzzle(go.puzzle);
+    free_world(go.world);
     CloseWindow();
     return 0;
 }
@@ -201,7 +221,7 @@ void loop(void)
 
     BeginDrawing();
 
-    ClearBackground(RAYWHITE);
+    ClearBackground(BLACK);
     switch (go.state) {
         case PUZZLE: { render_puzzle(go.puzzle, go.atlas); } break;
         case WORLD: { render_world(go.world, go.atlas); } break;
@@ -350,6 +370,21 @@ void update_world(World *w)
         }
     }
 
+    if (IsKeyPressed(KEY_I)) {
+        // Interact
+        Cell cell = cell_at_pos(w, w->player.pos);
+        switch ((enum PhysicalType) MASK_PHYSICAL_T(cell.info)) {
+            case PDOOR: {
+                int meta = MASK_META(cell.info) >> 6;
+                INFO("Door %d", meta);
+                World *oldw = w;
+                w = load_world(meta, w->world_id);
+                go.world = w;
+                free_world(oldw);
+            } break;
+        }
+    }
+
     size_t i;
     for (i = 0; i < case_len(w->cell_case); ++i) {
         w->cell_case[i].color = WHITE;
@@ -470,14 +505,6 @@ void fill_world(World *w, u16 *wbody)
     for (row = 0; row < w->rows; ++row) {
         for (col = 0; col < w->cols; ++col) {
             u16 info = wbody[row * w->cols + col];
-            u16 vtype = MASK_VISUAL_T(info);
-            switch ((enum VisualType) vtype) {
-                case VEMPTY: break;
-                case VSPAWN: {
-                    w->player.pos = (U32x2) { col, row };
-                    w->player.height = MASK_HEIGHT(info) >> 4;
-                } break;
-            }
             Cell cell;
             cell.pos = (U32x2) { col, row };
             cell.info = info;
@@ -488,17 +515,56 @@ void fill_world(World *w, u16 *wbody)
     }
 }
 
-World *load_world(u16 *wmap)
+void spawn_player(World *w, u8 spawnid)
 {
+    size_t i;
+    for (i = 0; i < case_len(w->cell_case); ++i) {
+        Cell c = w->cell_case[i];
+        if (spawnid == 4) {
+            u16 vtype = MASK_VISUAL_T(c.info);
+            switch ((enum VisualType) vtype) {
+                case VEMPTY: break;
+                case VSPAWN: {
+                    Player p;
+                    p.pos = (U32x2) { i % w->cols, i / w->cols };
+                    p.height = MASK_HEIGHT(c.info) >> 4;
+                    w->player = p;
+                    break;
+                } break;
+            }
+        } else {
+            if (MASK_PHYSICAL_T(c.info) == PDOOR) {
+                u16 meta = MASK_META(c.info) >> 6;
+                INFO("Door meta %d", meta);
+                if (meta == spawnid) {
+                    Player p;
+                    p.pos = (U32x2) { i % w->cols, i / w->cols };
+                    p.height = MASK_HEIGHT(c.info) >> 4;
+                    w->player = p;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+World *load_world(u16 world_id, u8 spawn)
+{
+    u16 *wmap = worlds[world_id];
     World *w = malloc(sizeof *w);
     size_t cols = *wmap; ++wmap;
     size_t rows = *wmap; ++wmap;
+    INFO("new dims %zu, %zu", cols, rows);
 
+    w->world_id = world_id;
     w->cols = cols;
     w->rows = rows;
     w->cell_case = case_init(cols * rows, sizeof *w->cell_case);
 
     fill_world(w, wmap);
+    INFO("Spawnid %d", spawn);
+    spawn_player(w, spawn);
+    INFO("Player pos %d, %d", w->player.pos.x, w->player.pos.y);
     return w;
 }
 
