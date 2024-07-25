@@ -77,7 +77,7 @@ enum VisualColor {
 #define S (PBED | H2 | VSPAWN)
 #define G (PGROUND | H1 )
 #define D (PDOOR | H2 )
-#define Ld (PWINDOW | UNWALKABLE | VBLUE | VSTRENGTH(0b0011))
+#define Ld (PWINDOW | UNWALKABLE | VWHITE | VSTRENGTH(0b1111))
 #define Lb (PWINDOW | UNWALKABLE | VPINK | VSTRENGTH(0b0011))
 
 /**
@@ -94,7 +94,7 @@ static u16 world1[] = {
     S, S, G, G, G, G,
     G, G, G, G, G, G,
     G, G, G, G, G, G,
-    0, 0, Ld,Lb,0, 0,
+    0, 0, Ld,Ld,0, 0,
 };
 
 #define C_BLUE CLITERAL(Color){ 0x55, 0xcd, 0xfc, 0xff }
@@ -313,22 +313,14 @@ void apply_lighting(World *w)
             u8 brightness = get_brightness_at_pos(w, pos);
             Color color = get_color_at_pos(w, pos);
             int b = brightness;
-            int x, y;
-            for (x = -b; x <= b; ++x) {
-                for (y = -b; y <= b; ++y) {
-                    // if (y == 0 && x == 0) continue;
-                    float val = 1.f / powf(abs(x) + abs(y), 2.f);
-                    // if (val < b) {
-                        size_t i = row * w->cols + col;
-                        int new_x = col + x;
-                        int new_y = row + y;
-                        if (new_x >= 0 && new_x < w->cols && new_y >= 0 && new_y < w->rows) {
-                            size_t new_i = new_y * w->cols + new_x;
-                            Color old = w->cell_case[new_i].color;
-                            w->cell_case[new_i].color = blend(w->cell_case[new_i].color, color, val);
-                            old = w->cell_case[new_i].color;
-                        }
-                    // }
+            int nx, ny;
+            for (nx = 0; nx < w->cols; ++nx) {
+                for (ny = 0; ny < w->rows; ++ny) {
+                    float val = 1.f / powf(abs((int) col - nx) + abs((int) row - ny), 2.f);
+                    size_t i = ny * w->cols + nx;
+                    Color old = w->cell_case[i].color;
+                    w->cell_case[i].color = blend(w->cell_case[i].color, color, val * b);
+                    old = w->cell_case[i].color;
                 }
             }
         }
@@ -398,8 +390,8 @@ void render_world_cells(World *w, Texture2D atlas)
         // color = blend(color, C_BLUE, cell.lighting + 5);
         // color = apply_tint(color, cell.lighting);
         // color = lerp(color, (Color) { 0, 0, 0, 255 }, 0.5 + (cell.lighting / 30.f));
-        color = blend(color, cell.color, 3);
-        // color = apply_shade(color, 0.7f);
+        color = apply_shade(color, 0.4f);
+        color = blend(color, cell.color, 0.2);
         DrawRectangleV(vspos, dim, color);
     }
 }
