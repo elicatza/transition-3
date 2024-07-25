@@ -77,7 +77,8 @@ enum VisualColor {
 #define S (PBED | H2 | VSPAWN)
 #define G (PGROUND | H1 )
 #define D (PDOOR | H2 )
-#define Ld (PWINDOW | UNWALKABLE | VBLUE | VSTRENGTH(0b0111))
+#define Ld (PWINDOW | UNWALKABLE | VBLUE | VSTRENGTH(0b0011))
+#define Lb (PWINDOW | UNWALKABLE | VPINK | VSTRENGTH(0b0011))
 
 /**
  * Header:
@@ -92,8 +93,8 @@ static u16 world1[] = {
     G, G, G, G, G, G,
     S, S, G, G, G, G,
     G, G, G, G, G, G,
-    G, G, G, G, G, Ld,
-    0, 0, G ,G, 0, 0,
+    G, G, G, G, G, G,
+    0, 0, Ld,Lb,0, 0,
 };
 
 #define C_BLUE CLITERAL(Color){ 0x55, 0xcd, 0xfc, 0xff }
@@ -269,7 +270,7 @@ bool is_valid_wspos(World *w, U32x2 pos, u32 height)
 }
 
 /**
- * @param intencity value from (0, 15)
+ * @param intencity value from [0, inf>
  */
 Color blend(Color main, Color blend, float intencity)
 {
@@ -311,24 +312,23 @@ void apply_lighting(World *w)
             U32x2 pos = { col, row };
             u8 brightness = get_brightness_at_pos(w, pos);
             Color color = get_color_at_pos(w, pos);
-            if (brightness) {
-                int b = brightness;
-                int x, y;
-                for (x = -b; x <= b; ++x) {
-                    for (y = -b; y <= b; ++y) {
-                        int val = abs(x) + abs(y);
-                        if (val < b) {
-                            size_t i = row * w->cols + col;
-                            int new_x = col + x;
-                            int new_y = row + y;
-                            if (new_x >= 0 && new_x < w->cols && new_y >= 0 && new_y < w->rows) {
-                                size_t new_i = new_y * w->cols + new_x;
-                                Color old = w->cell_case[new_i].color;
-                                w->cell_case[new_i].color = blend(w->cell_case[new_i].color, color, b - val);
-                                old = w->cell_case[new_i].color;
-                            }
+            int b = brightness;
+            int x, y;
+            for (x = -b; x <= b; ++x) {
+                for (y = -b; y <= b; ++y) {
+                    // if (y == 0 && x == 0) continue;
+                    float val = 1.f / powf(abs(x) + abs(y), 2.f);
+                    // if (val < b) {
+                        size_t i = row * w->cols + col;
+                        int new_x = col + x;
+                        int new_y = row + y;
+                        if (new_x >= 0 && new_x < w->cols && new_y >= 0 && new_y < w->rows) {
+                            size_t new_i = new_y * w->cols + new_x;
+                            Color old = w->cell_case[new_i].color;
+                            w->cell_case[new_i].color = blend(w->cell_case[new_i].color, color, val);
+                            old = w->cell_case[new_i].color;
                         }
-                    }
+                    // }
                 }
             }
         }
