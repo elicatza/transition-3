@@ -83,6 +83,7 @@ enum VisualColor {
 #define G (PGROUND | H1)
 #define D0 (PDOOR | H2 | PMETA(0b00))
 #define D1 (PDOOR | H2 | PMETA(0b01))
+#define P1 (PPUZZLE1 | H1)
 #define Ld (PWINDOW | UNWALKABLE | VWHITE | VSTRENGTH(0b1111))
 #define Lb (PWINDOW | UNWALKABLE | VPINK | VSTRENGTH(0b0011))
 
@@ -99,7 +100,7 @@ static u16 worlds[2][103] = {
         G, G, G, G, G, G,
         G, G, G, G, G, G,
         S, S, G, G, G, G,
-        G, G, G, G, G, G,
+        G, G, G, G, P1, G,
         G, G, G, G, G, G,
         0, 0, Ld,Ld,0, 0,
     },
@@ -119,12 +120,6 @@ static u16 worlds[2][103] = {
 
 #define C_BLUE CLITERAL(Color){ 0x55, 0xcd, 0xfc, 0xff }
 #define C_PINK CLITERAL(Color){ 0xf7, 0xa8, 0xb8, 0xff }
-
-typedef enum {
-    PUZZLE,
-    WORLD,
-    MENU,
-} GameState;
 
 typedef struct U32x2 {
     u32 x;
@@ -161,6 +156,7 @@ typedef struct {
     Puzzle *puzzle;
     World *world;
     GameState state;
+    size_t puzzle_id;
     float energy;
     float energy_max;
     float pain;
@@ -171,7 +167,7 @@ GO go = { 0 };
 
 /* Door 0, 1, 2, 3, spawnpoint */
 World *load_world(u16 world_id, u8 spawn);
-void update_world(World *w);
+GameState update_world(World *w);
 void render_world(World *w, Texture2D atlas);
 void free_world(World *w);
 
@@ -197,12 +193,13 @@ int main(void)
 
     go.atlas = LoadTextureFromImage(atlas_img);
     go.world = load_world(0, 4);
-    go.puzzle = load_puzzle(puzzle_array[0]);
     go.state = WORLD;
     go.energy = 0.3f;
     go.energy_max = 0.3f;
     go.pain = 0.2f;
     go.pain_max = 1.f;
+    go.puzzle_id;
+    go.puzzle = load_puzzle(puzzle_array[go.puzzle_id]);
 
 #if defined(PLATFORM_WEB)
     emscripten_set_main_loop(loop, 0, 1);
@@ -225,8 +222,21 @@ int main(void)
 void loop(void)
 {
     switch (go.state) {
-        case PUZZLE: { update_puzzle(go.puzzle); } break;
-        case WORLD: { update_world(go.world); } break;
+        case PUZZLE: { go.state = update_puzzle(go.puzzle); } break;
+        case PUZZLE_WIN: {
+            go.state = update_puzzle_win(go.puzzle);
+            if (go.state == WORLD) {
+                go.puzzle_id += 1;
+                if (go.puzzle_id >= sizeof puzzle_array / sizeof *puzzle_array) {
+                    WARNING("Out of puzzles");
+                    break;
+                }
+                Puzzle *p = load_puzzle(puzzle_array[go.puzzle_id]);
+                free_puzzle(go.puzzle);
+                go.puzzle = p;
+            }
+        } break;
+        case WORLD: { go.state = update_world(go.world); } break;
         default: { ASSERT(0, "Not implemented") } break;
     }
 
@@ -235,6 +245,7 @@ void loop(void)
     ClearBackground(BLACK);
     switch (go.state) {
         case PUZZLE: { render_puzzle(go.puzzle, go.atlas); } break;
+        case PUZZLE_WIN: { render_puzzle_win(go.puzzle, go.atlas); } break;
         case WORLD: { render_world(go.world, go.atlas); } break;
         default: { ASSERT(0, "Not implemented"); } break;
     }
@@ -358,7 +369,7 @@ void apply_lighting(World *w)
     }
 }
 
-void update_world(World *w)
+GameState update_world(World *w)
 {
     Player new_p = w->player;
     if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) {
@@ -381,7 +392,7 @@ void update_world(World *w)
         }
     }
 
-    if (IsKeyPressed(KEY_I)) {
+    if (IsKeyPressed(KEY_I) || IsKeyPressed(KEY_ENTER)) {
         // Interact
         Cell cell = cell_at_pos(w, w->player.pos);
         switch ((enum PhysicalType) MASK_PHYSICAL_T(cell.info)) {
@@ -392,6 +403,12 @@ void update_world(World *w)
                 w = load_world(meta, w->world_id);
                 go.world = w;
                 free_world(oldw);
+                return WORLD;
+            } break;
+            case PPUZZLE1: {
+                INFO("Puzzle 1");
+                return PUZZLE;
+
             } break;
         }
     }
@@ -401,6 +418,7 @@ void update_world(World *w)
         w->cell_case[i].color = WHITE;
     }
     apply_lighting(w);
+    return WORLD;
 }
 
 Vector2 vspos_of_ws(World *w, U32x2 ws)

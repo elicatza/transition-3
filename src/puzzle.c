@@ -32,7 +32,15 @@
  * body cell map
  */
 // static unsigned char puzzle1[] = { 
-unsigned char puzzle_array[1][103] = {
+unsigned char puzzle_array[2][103] = {
+    {
+        5, 5, 50,
+        1, 1, 3, 1, 1,
+        1,1|P,3, 1, 1,
+        1, 1, 3, 3, 1,
+        3, 1, 3,1|G,1,
+        1, 1, 3, 1, 1,
+    },
     {
         10, 10, 50,
         1, 1, 1, 1, 1, 1, 1, 3,3|G,3,
@@ -334,7 +342,38 @@ void mirror_over_line(Puzzle *p, int button_id, int options)
     }
 }
 
-void update_puzzle(Puzzle *p)
+bool is_player_at(Puzzle *p, int x, int y)
+{
+    size_t i;
+    for (i = 0; i < case_len(p->player_case); ++i) {
+        Player player = p->player_case[i];
+        int playerx = (int) player.pos.x + 0.5f;
+        int playery = (int) player.pos.y + 0.5f;
+        if (playerx == x && playery == y) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool puzzle_is_finished(Puzzle *p)
+{
+    size_t i;
+    for (i = 0; i < case_len(p->cell_case); ++i) {
+        Cell c = p->cell_case[i];
+        if (MASK_TYPE(c.info) == G) {
+            int x = i % p->cols;
+            int y = i / p->cols;
+            if (!is_player_at(p, x, y)) {
+                return false;
+            }
+        }
+    }
+    INFO("YOUVE WON THE GAME");
+    return true;
+}
+
+GameState update_puzzle(Puzzle *p)
 {
     Direction dir;
     __compar_fn_t cmp_fn = NULL;
@@ -392,6 +431,12 @@ void update_puzzle(Puzzle *p)
         }
     }
 
+    if (p->clicked_button == -1) {
+        if (puzzle_is_finished(p)) {
+            return PUZZLE_WIN;
+        }
+    }
+    return PUZZLE;
 }
 
 void render_button(Puzzle *p, Button *btn, Texture2D atlas)
@@ -602,6 +647,47 @@ void render_puzzle(Puzzle *p, Texture2D atlas)
             render_button(p, &p->button_case[i], atlas);
         }
     }
+}
+
+void render_puzzle_win(Puzzle *p, Texture2D atlas)
+{
+    render_puzzle(p, atlas);
+
+    Color bg = BLACK;
+    bg.a = 128;
+    Rectangle border = {
+        .x = p->rec.x + 0.2f * p->rec.width,
+        .y = p->rec.y + 0.2f * p->rec.height,
+        .width = (1.f - 0.4f) * p->rec.width,
+        .height = (1.f - 0.4f) * p->rec.height,
+    };
+    DrawRectangleRec(border, bg);
+    DrawRectangleLinesEx(border, 5.f, BLACK);
+
+    char *msg = "Next!";
+    Vector2 sz = MeasureTextEx(GetFontDefault(), msg, p->rec.height / 10.f, 4.f);
+    Vector2 pos = {
+        .x = p->rec.x + 0.5f * (p->rec.width  - sz.x),
+        .y = p->rec.y + 0.3f * (p->rec.height - sz.y),
+    };
+    DrawTextEx(GetFontDefault(), msg, pos, p->rec.height / 10.f, 4.f, WHITE);
+
+    char *instructions = "[enter]";
+    Vector2 isz = MeasureTextEx(GetFontDefault(), instructions, p->rec.height / 20.f, 2.f);
+    Vector2 ipos = {
+        .x = p->rec.x + 0.5f * (p->rec.width  - isz.x),
+        .y = p->rec.y + 0.3f * (p->rec.height - isz.y) + sz.y,
+    };
+    DrawTextEx(GetFontDefault(), instructions, ipos, p->rec.height / 20.f, 4.f, WHITE);
+
+}
+
+GameState update_puzzle_win(Puzzle *p)
+{
+    if (IsKeyPressed(KEY_ENTER)) {
+        return WORLD;
+    }
+    return PUZZLE_WIN;
 }
 
 void fill_cells(Puzzle *p, unsigned char *puzzle_body)

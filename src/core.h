@@ -22,6 +22,13 @@ typedef uint32_t u32;
 typedef uint16_t u16;
 typedef uint8_t u8;
 
+typedef enum {
+    PUZZLE,
+    PUZZLE_WIN,
+    WORLD,
+    MENU,
+} GameState;
+
 #ifdef TEST
 #define TEST_ASSERT(statement) test_assert(statement, #statement)
 
