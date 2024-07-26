@@ -158,7 +158,7 @@ GO go = { 0 };
 
 /* Door 0, 1, 2, 3, spawnpoint */
 World *load_world(u16 world_id, u8 spawn);
-GameState update_world(World *w);
+GameState update_world(World *w, PlayerState *pstate);
 void render_world(World *w, Texture2D atlas);
 void free_world(World *w);
 
@@ -214,7 +214,7 @@ int main(void)
 void loop(void)
 {
     switch (go.state) {
-        case PUZZLE: { go.state = update_puzzle(go.puzzle); } break;
+        case PUZZLE: { go.state = update_puzzle(go.puzzle, &go.pstate); } break;
         case PUZZLE_WIN: {
             go.state = update_puzzle_win(go.puzzle);
             if (go.state == WORLD) {
@@ -228,7 +228,7 @@ void loop(void)
                 go.puzzle = p;
             }
         } break;
-        case WORLD: { go.state = update_world(go.world); } break;
+        case WORLD: { go.state = update_world(go.world, &go.pstate); } break;
         default: { ASSERT(0, "Not implemented") } break;
     }
 
@@ -237,7 +237,7 @@ void loop(void)
     ClearBackground(BLACK);
     switch (go.state) {
         case PUZZLE: { render_puzzle(go.puzzle, go.pstate, go.atlas); } break;
-        case PUZZLE_WIN: { render_puzzle_win(go.puzzle, go.pstate, go.atlas); } break;
+        case PUZZLE_WIN: { render_puzzle_win(go.puzzle, &go.pstate, go.atlas); } break;
         case WORLD: { render_world(go.world, go.atlas); } break;
         default: { ASSERT(0, "Not implemented"); } break;
     }
@@ -366,7 +366,7 @@ void apply_lighting(World *w)
     }
 }
 
-GameState update_world(World *w)
+GameState update_world(World *w, PlayerState *pstate)
 {
     Player new_p = w->player;
     if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) {
@@ -380,10 +380,15 @@ GameState update_world(World *w)
     }
 
     if (memcmp(&new_p, &w->player.pos, sizeof new_p) != 0) {
+        bool penalty = false;
         if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT) || IsKeyDown(KEY_U)) {
+            penalty = true;
             new_p.height += 1;
         }
         if (is_valid_wspos(w, new_p.pos, new_p.height)) {
+            if (penalty) {
+                pstate->energy -= PENALTY_ENERGY;
+            }
             w->player = new_p;
             w->player.height = get_height_at_pos(w, new_p.pos);
         }
@@ -406,6 +411,9 @@ GameState update_world(World *w)
                 INFO("Puzzle 1");
                 return PUZZLE;
 
+            } break;
+            default: {
+                ASSERT(0, "Not implemented");
             } break;
         }
     }

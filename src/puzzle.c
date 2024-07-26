@@ -220,30 +220,6 @@ int players_cmp_rl(const void *a, const void *b)
     return ((Player *) b)->pos.x - ((Player *) a)->pos.x;
 }
 
-void move_player(Puzzle *p, Player *player, Direction dir)
-{
-    // TODO play animation when can't move + when move
-    Player new_player = *player;
-    switch (dir) {
-        case UP: { new_player.pos.y += -1; } break;
-        case DOWN: { new_player.pos.y += 1; } break;
-        case LEFT: { new_player.pos.x += -1; } break;
-        case RIGHT: { new_player.pos.x += 1; } break;
-            default: {
-            WARNING("This function should not be run");
-        } break;
-    };
-
-    if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT) || IsKeyDown(KEY_U)) {
-        new_player.height += 1;
-    }
-    // Check collisions
-    if (is_valid_pos(p, new_player)) {
-        new_player.height = cell_height_at_pos(p, new_player.pos);
-        memcpy(player, &new_player, sizeof new_player);
-    }
-}
-
 /**
  * @return -1 if no match is found. Otherwise the index of hover button
  */
@@ -373,7 +349,7 @@ bool puzzle_is_finished(Puzzle *p)
     return true;
 }
 
-GameState update_puzzle(Puzzle *p)
+GameState update_puzzle(Puzzle *p, PlayerState *pstate)
 {
     if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_Q)) {
         return WORLD;
@@ -400,7 +376,30 @@ GameState update_puzzle(Puzzle *p)
         qsort(p->player_case, case_len(p->player_case), sizeof *(p->player_case), cmp_fn);
         size_t i;
         for (i = 0; i < case_len(p->player_case); ++i) {
-            move_player(p, &p->player_case[i], dir);
+            Player new_player = p->player_case[i];
+            switch (dir) {
+                case UP: { new_player.pos.y += -1; } break;
+                case DOWN: { new_player.pos.y += 1; } break;
+                case LEFT: { new_player.pos.x += -1; } break;
+                case RIGHT: { new_player.pos.x += 1; } break;
+                default: {
+                    ASSERT(0, "Unreachable");
+                } break;
+            };
+
+            bool penatlty = false;
+            if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT) || IsKeyDown(KEY_U)) {
+                penatlty = true;
+                new_player.height += 1;
+            }
+            // Check collisions
+            if (is_valid_pos(p, new_player)) {
+                if (penatlty) {
+                    pstate->energy -= PENALTY_ENERGY;
+                }
+                new_player.height = cell_height_at_pos(p, new_player.pos);
+                memcpy(&p->player_case[i], &new_player, sizeof new_player);
+            }
         }
     }
 
@@ -653,9 +652,9 @@ void render_puzzle(Puzzle *p, PlayerState pstate, Texture2D atlas)
     render_hud(pstate, p->rec.x + p->rec.width, atlas);
 }
 
-void render_puzzle_win(Puzzle *p, PlayerState pstate, Texture2D atlas)
+void render_puzzle_win(Puzzle *p, PlayerState *pstate, Texture2D atlas)
 {
-    render_puzzle(p, pstate, atlas);
+    render_puzzle(p, *pstate, atlas);
 
     Color bg = BLACK;
     bg.a = 128;

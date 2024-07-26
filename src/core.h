@@ -26,6 +26,9 @@ typedef uint8_t u8;
 #define C_BLUE CLITERAL(Color){ 0x55, 0xcd, 0xfc, 0xff }
 #define C_PINK CLITERAL(Color){ 0xf7, 0xa8, 0xb8, 0xff }
 
+#define PENALTY_PAIN 0.05f
+#define PENALTY_ENERGY 0.025f
+
 typedef enum {
     PUZZLE,
     PUZZLE_WIN,
