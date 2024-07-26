@@ -1,6 +1,7 @@
 #ifndef CORE_H
 #define CORE_H
 
+#include <raylib.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -22,12 +23,25 @@ typedef uint32_t u32;
 typedef uint16_t u16;
 typedef uint8_t u8;
 
+#define C_BLUE CLITERAL(Color){ 0x55, 0xcd, 0xfc, 0xff }
+#define C_PINK CLITERAL(Color){ 0xf7, 0xa8, 0xb8, 0xff }
+
 typedef enum {
     PUZZLE,
     PUZZLE_WIN,
     WORLD,
     MENU,
 } GameState;
+
+typedef struct {
+    float pain;
+    float pain_max;
+    float energy;
+    float energy_max;
+    float energy_lim;
+} PlayerState;
+
+void render_hud(PlayerState pstate, float offx, Texture2D atlas);
 
 #ifdef TEST
 #define TEST_ASSERT(statement) test_assert(statement, #statement)

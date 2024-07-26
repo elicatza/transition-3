@@ -71,11 +71,11 @@ typedef struct Button {
 typedef enum {
     PREVIEW,
     PHYSICAL,
-} PlayerState;
+} PreviewStep;
 
 typedef struct {
     Vector2 pos;
-    PlayerState state;
+    PreviewStep state;
     unsigned char height;
 } Player;
 
@@ -375,6 +375,9 @@ bool puzzle_is_finished(Puzzle *p)
 
 GameState update_puzzle(Puzzle *p)
 {
+    if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_Q)) {
+        return WORLD;
+    }
     Direction dir;
     __compar_fn_t cmp_fn = NULL;
 
@@ -597,18 +600,18 @@ void render_puzzle_grid(Puzzle *p)
     }
 }
 
-void render_puzzle(Puzzle *p, Texture2D atlas)
+void render_puzzle(Puzzle *p, PlayerState pstate, Texture2D atlas)
 {
     int height = GetScreenHeight() - p->padding;
     int width = GetScreenWidth() - p->padding;
     ASSERT(width >= height);
 
-    p->rec = (Rectangle) {
-        .width = height,
-        .height = height,
-        .x = (width - height) / 2.f,
-        .y = p->padding / 2.f,
-    };
+    float cell_width = MIN(width / p->cols, height / p->rows);
+    p->rec.x = (width - (cell_width * p->cols)) / 2.f + p->padding / 2.f;
+    p->rec.y = (height - (cell_width * p->rows)) / 2.f + p->padding / 2.f;
+    p->rec.width = cell_width * p->cols;
+    p->rec.height = cell_width * p->rows;
+
 
     // Draw cells
     size_t i;
@@ -647,11 +650,12 @@ void render_puzzle(Puzzle *p, Texture2D atlas)
             render_button(p, &p->button_case[i], atlas);
         }
     }
+    render_hud(pstate, p->rec.x + p->rec.width, atlas);
 }
 
-void render_puzzle_win(Puzzle *p, Texture2D atlas)
+void render_puzzle_win(Puzzle *p, PlayerState pstate, Texture2D atlas)
 {
-    render_puzzle(p, atlas);
+    render_puzzle(p, pstate, atlas);
 
     Color bg = BLACK;
     bg.a = 128;
@@ -679,11 +683,11 @@ void render_puzzle_win(Puzzle *p, Texture2D atlas)
         .y = p->rec.y + 0.3f * (p->rec.height - isz.y) + sz.y,
     };
     DrawTextEx(GetFontDefault(), instructions, ipos, p->rec.height / 20.f, 4.f, WHITE);
-
 }
 
 GameState update_puzzle_win(Puzzle *p)
 {
+    (void) p;
     if (IsKeyPressed(KEY_ENTER)) {
         return WORLD;
     }

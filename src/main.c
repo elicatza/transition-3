@@ -14,12 +14,9 @@
 #endif
 
 
-#define ASPECT_RATIO (16.f / 9.f)
+#define ASPECT_RATIO (4.f / 3.f)
 #define WIDTH 800
 #define HEIGHT (WIDTH / ASPECT_RATIO)
-#define PADDING 50.f
-
-#define MAX_ENERGY 1.f
 
 /**
  * New format
@@ -118,9 +115,6 @@ static u16 worlds[2][103] = {
     }
 };
 
-#define C_BLUE CLITERAL(Color){ 0x55, 0xcd, 0xfc, 0xff }
-#define C_PINK CLITERAL(Color){ 0xf7, 0xa8, 0xb8, 0xff }
-
 typedef struct U32x2 {
     u32 x;
     u32 y;
@@ -157,10 +151,7 @@ typedef struct {
     World *world;
     GameState state;
     size_t puzzle_id;
-    float energy;
-    float energy_max;
-    float pain;
-    float pain_max;
+    PlayerState pstate;
 } GO;
 
 GO go = { 0 };
@@ -194,11 +185,12 @@ int main(void)
     go.atlas = LoadTextureFromImage(atlas_img);
     go.world = load_world(0, 4);
     go.state = WORLD;
-    go.energy = 0.3f;
-    go.energy_max = 0.3f;
-    go.pain = 0.2f;
-    go.pain_max = 1.f;
-    go.puzzle_id;
+    go.pstate.energy = 0.3f;
+    go.pstate.energy_max = 0.3f;
+    go.pstate.energy_lim = 1.0f;
+    go.pstate.pain = 0.2f;
+    go.pstate.pain_max = 1.f;
+    go.puzzle_id = 0;
     go.puzzle = load_puzzle(puzzle_array[go.puzzle_id]);
 
 #if defined(PLATFORM_WEB)
@@ -244,8 +236,8 @@ void loop(void)
 
     ClearBackground(BLACK);
     switch (go.state) {
-        case PUZZLE: { render_puzzle(go.puzzle, go.atlas); } break;
-        case PUZZLE_WIN: { render_puzzle_win(go.puzzle, go.atlas); } break;
+        case PUZZLE: { render_puzzle(go.puzzle, go.pstate, go.atlas); } break;
+        case PUZZLE_WIN: { render_puzzle_win(go.puzzle, go.pstate, go.atlas); } break;
         case WORLD: { render_world(go.world, go.atlas); } break;
         default: { ASSERT(0, "Not implemented"); } break;
     }
@@ -276,6 +268,9 @@ Color get_color_at_pos(World *w, U32x2 pos)
         case VBLUE: { return C_BLUE; } break;
         case VPINK: { return C_PINK; } break;
         case VBLACK: { return BLACK; } break;
+        default: {
+            ASSERT(0, "Unreachable");
+        } break;
     };
 }
 
@@ -287,19 +282,21 @@ Color get_color_at_i(World *w, size_t i)
         case VBLUE: { return C_BLUE; } break;
         case VPINK: { return C_PINK; } break;
         case VBLACK: { return BLACK; } break;
+        default: {
+            ASSERT(0, "Unreachable");
+        } break;
     };
 }
 
 
 bool is_valid_wspos(World *w, U32x2 pos, u32 height)
 {
-    if (pos.x < 0 || pos.x >= w->cols) {
+    if (pos.x >= w->cols) {
         return false;
     }
-    if (pos.y < 0 || pos.y >= w->rows) {
+    if (pos.y >= w->rows) {
         return false;
     }
-    Cell cell = cell_at_pos(w, pos);
     u8 cell_height = get_height_at_pos(w, pos);
     if (cell_height == UNWALKABLE) {
         return false;
@@ -356,13 +353,13 @@ void apply_lighting(World *w)
             Color color = get_color_at_pos(w, pos);
             int b = brightness;
             int nx, ny;
-            for (nx = 0; nx < w->cols; ++nx) {
-                for (ny = 0; ny < w->rows; ++ny) {
+            for (nx = 0; nx < (int) w->cols; ++nx) {
+                for (ny = 0; ny < (int) w->rows; ++ny) {
                     float val = 1.f / powf(abs((int) col - nx) + abs((int) row - ny), 2.f);
                     size_t i = ny * w->cols + nx;
-                    Color old = w->cell_case[i].color;
+                    // Color old = w->cell_case[i].color;
                     w->cell_case[i].color = blend(w->cell_case[i].color, color, val * b);
-                    old = w->cell_case[i].color;
+                    // old = w->cell_case[i].color;
                 }
             }
         }
@@ -431,6 +428,7 @@ Vector2 vspos_of_ws(World *w, U32x2 ws)
 
 void render_world_cells(World *w, Texture2D atlas)
 {
+    (void) atlas;
     size_t i;
     for (i = 0; i < case_len(w->cell_case); ++i) {
         Cell cell = w->cell_case[i];
@@ -505,86 +503,22 @@ void render_world_height_lines(World *w)
     }
 }
 
-void render_hud(World *w, Texture2D atlas)
-{
-    (void) atlas;
-
-    float s_width = w->wpos.x + w->wdim.x;
-    float s_height = GetScreenHeight();
-    float padx = PADDING * 0.1;
-    float ysec = w->wdim.y * (1.f / 9.f);
-    DrawRectangleRec((Rectangle) {
-        .width = PADDING,
-        .height = w->wdim.y,
-        .x = w->wpos.x + w->wdim.x,
-        .y = 0,
-    }, GRAY);
-
-
-    DrawRectangleLinesEx((Rectangle) {
-        .width = PADDING - 2.f * padx,
-        .height = 3 * (go.energy_max / MAX_ENERGY) * ysec,
-        .x = w->wpos.x + w->wdim.x + padx,
-        .y = ysec + 3 * (1.f - (go.energy_max / MAX_ENERGY)) * ysec,
-    }, 2.f, C_BLUE);
-
-    DrawRectangleRec((Rectangle) {
-        .width = PADDING - 2.f * padx,
-        .height = 3 * (go.energy / MAX_ENERGY) * ysec,
-        .x = w->wpos.x + w->wdim.x + padx,
-        .y = ysec + 3 * (1.f - (go.energy / MAX_ENERGY)) * ysec,
-    }, C_BLUE);
-
-    DrawRectangleLinesEx((Rectangle) {
-        .width = PADDING - 2.f * padx,
-        .height = 3 * ysec,
-        .x = w->wpos.x + w->wdim.x + padx,
-        .y = ysec,
-    }, 2.f, BLACK);
-
-    DrawText("Energy", w->wpos.x + w->wdim.x + padx, ysec * 0.5f, 12.f, C_BLUE);
-
-    DrawRectangleRec((Rectangle) {
-        .width = PADDING - 2.f * padx,
-        .height = 3 * (go.pain / go.pain_max) * ysec,
-        .x = w->wpos.x + w->wdim.x + padx,
-        .y = 5 * ysec + 3 * (1.f - (go.pain / go.pain_max)) * ysec,
-    }, C_PINK);
-
-    DrawRectangleLinesEx((Rectangle) {
-        .width = PADDING - 2.f * padx,
-        .height = 3 * ysec,
-        .x = w->wpos.x + w->wdim.x + padx,
-        .y = 5 * ysec,
-    }, 2.f, BLACK);
-
-    DrawText("Pain", w->wpos.x + w->wdim.x + padx, 4 * ysec + ysec * 0.5f, 12.f, C_PINK);
-}
 
 void render_world(World *w, Texture2D atlas)
 {
-    float s_width = GetScreenWidth();
-    float s_height = GetScreenHeight();
-    float width = s_width - PADDING;
-    float height = s_height;
-    float padx = PADDING;
-    float pady = 0.f;
-
-    int min_dim = MIN(width, height);
-    int max_dim = MAX(width, height);
-
+    float width = GetScreenWidth();
+    float height = GetScreenHeight();
 
     w->cell_width = MIN(width / w->cols, height / w->rows);
-
-    w->wpos.x = (max_dim - height) / 2.f + (w->cell_width * (MAX(w->rows, w->cols) - w->rows) / 2.f) + padx / 2.f;
-    w->wpos.y = (max_dim - width) / 2.f + (w->cell_width * (MAX(w->rows, w->cols) - w->rows) / 2.f) + pady / 2.f;
+    w->wpos.x = (width - (w->cell_width * w->cols)) / 2.f;
+    w->wpos.y = (height - (w->cell_width * w->rows)) / 2.f;
     w->wdim.x = w->cell_width * w->cols;
     w->wdim.y = w->cell_width * w->rows;
 
     render_world_cells(w, atlas);
     render_world_player(w);
     render_world_height_lines(w);
-    render_hud(w, atlas);
+    render_hud(go.pstate, w->wpos.x + w->wdim.x, atlas);
     DrawRectangleLinesEx((Rectangle) { w->wpos.x, w->wpos.y, w->wdim.x, w->wdim.y }, 2.f, RED);
 }
 
