@@ -79,10 +79,11 @@ enum VisualColor {
 #define S (PBED | H2 | VSPAWN)
 #define G (PGROUND | H1)
 #define D0 (PDOOR | H2 | PMETA(0b00))
-#define D1 (PDOOR | H2 | PMETA(0b01))
+#define D1 (PDOOR | H2 | PMETA(0b01)) /* Meta roomid */
 #define P1 (PPUZZLE1 | H1)
-#define Ld (PWINDOW | UNWALKABLE | VWHITE | VSTRENGTH(0b1111))
-#define Lb (PWINDOW | UNWALKABLE | VPINK | VSTRENGTH(0b0011))
+#define Ld (PWINDOW | UNWALKABLE | PMETA(0b01) | VWHITE | VSTRENGTH(0b1111)) /* Meta off on */
+#define Lb (PWINDOW | UNWALKABLE | PMETA(0b01) | VPINK | VSTRENGTH(0b0011))  /* Meta off on */
+#define B (PBLINDS | H1)  /* 0 down 1 up */
 
 /**
  * Header:
@@ -98,7 +99,7 @@ static u16 worlds[2][103] = {
         G, G, G, G, G, G,
         S, S, G, G, G, G,
         G, G, G, G, P1, G,
-        G, G, G, G, G, G,
+        G, G, G, B, G, G,
         0, 0, Ld,Ld,0, 0,
     },
     {
@@ -260,6 +261,12 @@ u8 get_brightness_at_pos(World *w, U32x2 pos)
     return MASK_BRIGHTNESS(w->cell_case[pos.y * w->cols + pos.x].info) >> 12;
 }
 
+u8 get_meta_at_pos(World *w, U32x2 pos)
+{
+    return MASK_META(w->cell_case[pos.y * w->cols + pos.x].info) >> 6;
+}
+
+
 Color get_color_at_pos(World *w, U32x2 pos)
 {
     enum VisualColor color = MASK_COLOR(w->cell_case[pos.y * w->cols + pos.x].info);
@@ -350,6 +357,8 @@ void apply_lighting(World *w)
         for (col = 0; col < w->cols; ++col) {
             U32x2 pos = { col, row };
             u8 brightness = get_brightness_at_pos(w, pos);
+            u8 off = get_meta_at_pos(w, pos);
+            if (off) continue;
             Color color = get_color_at_pos(w, pos);
             int b = brightness;
             int nx, ny;
@@ -361,6 +370,26 @@ void apply_lighting(World *w)
                     w->cell_case[i].color = blend(w->cell_case[i].color, color, val * b);
                     // old = w->cell_case[i].color;
                 }
+            }
+        }
+    }
+}
+
+void toggle_blinds(World *w, U32x2 pos) {
+    // Loop over windows in 3x3 area. Disable them.
+    // Factor out to toggle blinds function
+    int x, y;
+    for (x = -1; x <= 1; ++x) {
+        for (y = -1; y <= 1; ++y) {
+            if (x == 0 && y == 0) continue;
+            int newx = pos.x + x;
+            int newy = pos.y + y;
+            if (newx < 0 || newx >= w->cols) continue;
+            if (newy < 0 || newy >= w->rows) continue;
+            Cell *xycell = &w->cell_case[newy * w->cols + newx];
+            if ((enum PhysicalType) MASK_PHYSICAL_T(xycell->info) == PWINDOW) {
+                INFO("Found valid lightsource %d", MASK_PHYSICAL_T(xycell->info));
+                xycell->info ^= 0b01000000;
             }
         }
     }
@@ -398,6 +427,9 @@ GameState update_world(World *w, PlayerState *pstate)
         // Interact
         Cell cell = cell_at_pos(w, w->player.pos);
         switch ((enum PhysicalType) MASK_PHYSICAL_T(cell.info)) {
+            case PGROUND: break;
+            case PEMPTY: break;
+            case PBLINDS: { toggle_blinds(w, cell.pos); } break;
             case PDOOR: {
                 int meta = MASK_META(cell.info) >> 6;
                 INFO("Door %d", meta);
@@ -412,9 +444,9 @@ GameState update_world(World *w, PlayerState *pstate)
                 return PUZZLE;
 
             } break;
-            default: {
-                ASSERT(0, "Not implemented");
-            } break;
+            // default: {
+            //     ASSERT(0, "Not implemented");
+            // } break;
         }
     }
 
