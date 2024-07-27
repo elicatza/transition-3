@@ -34,6 +34,8 @@ typedef enum {
     PUZZLE_WIN,
     WORLD,
     MENU,
+    SLEEP,
+    FAINT,
 } GameState;
 
 typedef struct {
@@ -41,6 +43,7 @@ typedef struct {
     float pain_max;
     float energy;
     float energy_max;
+    float time;  /* 0-1 ranges a whole day */
     float energy_lim;
 } PlayerState;
 

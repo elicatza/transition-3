@@ -396,6 +396,10 @@ GameState update_puzzle(Puzzle *p, PlayerState *pstate)
             if (is_valid_pos(p, new_player)) {
                 if (penatlty) {
                     pstate->energy -= PENALTY_ENERGY;
+                    if (pstate->energy < 0) {
+                        pstate->energy = 0.f;
+                        return FAINT;
+                    }
                 }
                 new_player.height = cell_height_at_pos(p, new_player.pos);
                 memcpy(&p->player_case[i], &new_player, sizeof new_player);

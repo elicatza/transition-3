@@ -146,6 +146,15 @@ typedef struct World {
     Vector2 wdim;
 } World;
 
+typedef struct Sleep {
+    float init_energy;
+    float end_energy;
+    float init_time;
+    float step_time;
+    float end_time;
+    float elapsed_time;
+} Sleep;
+
 typedef struct {
     Texture2D atlas;
     Puzzle *puzzle;
@@ -153,6 +162,7 @@ typedef struct {
     GameState state;
     size_t puzzle_id;
     PlayerState pstate;
+    Sleep sleep;
 } GO;
 
 GO go = { 0 };
@@ -162,7 +172,8 @@ World *load_world(u16 world_id, u8 spawn);
 GameState update_world(World *w, PlayerState *pstate);
 void render_world(World *w, Texture2D atlas);
 void free_world(World *w);
-
+GameState update_sleep(World **w, Sleep *s, PlayerState *pstate, GameState gs);
+void render_sleep(World *w, Sleep s, Texture2D atlas);
 
 
 
@@ -191,6 +202,7 @@ int main(void)
     go.pstate.energy_lim = 1.0f;
     go.pstate.pain = 0.2f;
     go.pstate.pain_max = 1.f;
+    go.pstate.time = 0.25; /* 06:00 */
     go.puzzle_id = 0;
     go.puzzle = load_puzzle(puzzle_array[go.puzzle_id]);
 
@@ -230,6 +242,8 @@ void loop(void)
             }
         } break;
         case WORLD: { go.state = update_world(go.world, &go.pstate); } break;
+        case SLEEP: { go.state = update_sleep(&go.world, &go.sleep, &go.pstate, SLEEP); } break;
+        case FAINT: { go.state = update_sleep(&go.world, &go.sleep, &go.pstate, FAINT); } break;
         default: { ASSERT(0, "Not implemented") } break;
     }
 
@@ -240,6 +254,8 @@ void loop(void)
         case PUZZLE: { render_puzzle(go.puzzle, go.pstate, go.atlas); } break;
         case PUZZLE_WIN: { render_puzzle_win(go.puzzle, &go.pstate, go.atlas); } break;
         case WORLD: { render_world(go.world, go.atlas); } break;
+        case SLEEP: { render_sleep(go.world, go.sleep, go.atlas); } break;
+        case FAINT: { render_sleep(go.world, go.sleep, go.atlas); } break;
         default: { ASSERT(0, "Not implemented"); } break;
     }
 
@@ -384,8 +400,8 @@ void toggle_blinds(World *w, U32x2 pos) {
             if (x == 0 && y == 0) continue;
             int newx = pos.x + x;
             int newy = pos.y + y;
-            if (newx < 0 || newx >= w->cols) continue;
-            if (newy < 0 || newy >= w->rows) continue;
+            if (newx < 0 || newx >= (int) w->cols) continue;
+            if (newy < 0 || newy >= (int) w->rows) continue;
             Cell *xycell = &w->cell_case[newy * w->cols + newx];
             if ((enum PhysicalType) MASK_PHYSICAL_T(xycell->info) == PWINDOW) {
                 INFO("Found valid lightsource %d", MASK_PHYSICAL_T(xycell->info));
@@ -393,6 +409,89 @@ void toggle_blinds(World *w, U32x2 pos) {
             }
         }
     }
+}
+
+Sleep init_sleep(PlayerState pstate)
+{
+    Sleep rv;
+    float sleep_time = (3.f / 8.f) * (1.f - (pstate.energy / pstate.energy_max));
+    rv.init_time = pstate.time;
+    rv.step_time = 0.05f / ((3.f / 8.f) / sleep_time);
+    rv.end_time = pstate.time + sleep_time;
+    rv.init_energy = pstate.energy;
+    rv.end_energy = ((3.f / 8.f) / sleep_time) * 0.8f * pstate.energy_max; /* TODO Factor in lightness (0.8f) */
+    rv.elapsed_time = 0.f;
+    return rv;
+}
+
+Sleep init_faint(PlayerState pstate)
+{
+    Sleep rv;
+    float sleep_time = (3.f / 8.f) * (1.f - (pstate.energy / pstate.energy_max));
+    rv.init_time = pstate.time;
+    rv.step_time = 0.05f / ((3.f / 8.f) / sleep_time);
+    rv.end_time = pstate.time + sleep_time;
+    rv.init_energy = pstate.energy;
+    rv.end_energy = ((3.f / 8.f) / sleep_time) * 0.5f * pstate.energy_max; /* TODO Factor in lightness (0.8f) */
+    rv.elapsed_time = 0.f;
+    return rv;
+}
+
+void spawn_player(World *w, u8 spawnid)
+{
+    size_t i;
+    for (i = 0; i < case_len(w->cell_case); ++i) {
+        Cell c = w->cell_case[i];
+        if (spawnid == 4) {
+            u16 vtype = MASK_VISUAL_T(c.info);
+            switch ((enum VisualType) vtype) {
+                case VEMPTY: break;
+                case VSPAWN: {
+                    Player p;
+                    p.pos = (U32x2) { i % w->cols, i / w->cols };
+                    p.height = MASK_HEIGHT(c.info) >> 4;
+                    w->player = p;
+                    break;
+                } break;
+            }
+        } else {
+            if (MASK_PHYSICAL_T(c.info) == PDOOR) {
+                u16 meta = MASK_META(c.info) >> 6;
+                INFO("Door meta %d", meta);
+                if (meta == spawnid) {
+                    Player p;
+                    p.pos = (U32x2) { i % w->cols, i / w->cols };
+                    p.height = MASK_HEIGHT(c.info) >> 4;
+                    w->player = p;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+GameState update_sleep(World **w, Sleep *s, PlayerState *pstate, GameState gs)
+{
+    if (gs == FAINT) {
+        free_world(*w);
+        *w = load_world(0, 4);
+        spawn_player(*w, 4);
+        *s = init_faint(*pstate);
+    }
+    s->elapsed_time += GetFrameTime();
+    float cur_time = s->step_time * s->elapsed_time + s->init_time;
+    INFO("Sleeping: %.2f: %.2f", s->elapsed_time, s->step_time);
+    if (cur_time >= s->end_time) {
+        pstate->energy = s->end_energy;
+        pstate->time = cur_time;
+        return WORLD;
+    }
+    return SLEEP;
+}
+
+void render_sleep(World *w, Sleep s, Texture2D atlas)
+{
+    render_world(w, atlas);
 }
 
 GameState update_world(World *w, PlayerState *pstate)
@@ -417,6 +516,10 @@ GameState update_world(World *w, PlayerState *pstate)
         if (is_valid_wspos(w, new_p.pos, new_p.height)) {
             if (penalty) {
                 pstate->energy -= PENALTY_ENERGY;
+                if (pstate->energy < 0) {
+                    pstate->energy = 0.f;
+                    return FAINT;
+                }
             }
             w->player = new_p;
             w->player.height = get_height_at_pos(w, new_p.pos);
@@ -443,6 +546,10 @@ GameState update_world(World *w, PlayerState *pstate)
                 INFO("Puzzle 1");
                 return PUZZLE;
 
+            } break;
+            case PBED: {
+                go.sleep = init_sleep(*pstate);
+                return SLEEP;
             } break;
             // default: {
             //     ASSERT(0, "Not implemented");
@@ -578,38 +685,6 @@ void fill_world(World *w, u16 *wbody)
     }
 }
 
-void spawn_player(World *w, u8 spawnid)
-{
-    size_t i;
-    for (i = 0; i < case_len(w->cell_case); ++i) {
-        Cell c = w->cell_case[i];
-        if (spawnid == 4) {
-            u16 vtype = MASK_VISUAL_T(c.info);
-            switch ((enum VisualType) vtype) {
-                case VEMPTY: break;
-                case VSPAWN: {
-                    Player p;
-                    p.pos = (U32x2) { i % w->cols, i / w->cols };
-                    p.height = MASK_HEIGHT(c.info) >> 4;
-                    w->player = p;
-                    break;
-                } break;
-            }
-        } else {
-            if (MASK_PHYSICAL_T(c.info) == PDOOR) {
-                u16 meta = MASK_META(c.info) >> 6;
-                INFO("Door meta %d", meta);
-                if (meta == spawnid) {
-                    Player p;
-                    p.pos = (U32x2) { i % w->cols, i / w->cols };
-                    p.height = MASK_HEIGHT(c.info) >> 4;
-                    w->player = p;
-                    break;
-                }
-            }
-        }
-    }
-}
 
 World *load_world(u16 world_id, u8 spawn)
 {
