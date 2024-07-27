@@ -88,14 +88,11 @@ void render_hud_lhs(PlayerState pstate, float offx, Texture2D atlas)
 
     float s_width = GetScreenWidth();
     float s_height = GetScreenHeight();
-    float padx = (s_width - MIN(s_width, s_height)) / 10.f;
+    float padx = (s_width - offx) / 10.f;
     float x = 0;
     // float width = s_width - offx;
     float ysec = s_height * (1.f / 9.f);
 
-    char msg[6];
-    format_time(pstate, msg, sizeof msg);
-    // DrawText(msg, x + padx, ysec * 1.4, 18.f, WHITE);
 
     char day[38];
     format_date(pstate, day, sizeof day);
@@ -103,7 +100,7 @@ void render_hud_lhs(PlayerState pstate, float offx, Texture2D atlas)
     day[len + 0] = '\n';
     day[len + 1] = '\n';
     format_time(pstate, (char *) (day + len + 2), 6);
-    INFO("%s", day);
+    // INFO("%s", day);
     // INFO("%s", day + len + 1);
     DrawText(day, x + padx, ysec * 0.5f, 19.f, WHITE);
 }

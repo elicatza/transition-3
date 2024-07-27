@@ -30,8 +30,10 @@ typedef uint8_t u8;
 #define PENALTY_ENERGY 0.025f
 
 typedef enum {
-    PUZZLE,
-    PUZZLE_WIN,
+    PUZZLE_FUN,
+    PUZZLE_FUN_WIN,
+    PUZZLE_TRAIN,
+    PUZZLE_TRAIN_WIN,
     WORLD,
     MENU,
     SLEEP,

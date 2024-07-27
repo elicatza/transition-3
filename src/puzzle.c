@@ -32,7 +32,7 @@
  * body cell map
  */
 // static unsigned char puzzle1[] = { 
-unsigned char puzzle_array[2][103] = {
+unsigned char puzzle_fun_array[2][103] = {
     {
         5, 5, 50,
         1, 1, 3, 1, 1,
@@ -55,6 +55,31 @@ unsigned char puzzle_array[2][103] = {
         2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
     },
 };
+
+unsigned char puzzle_train_array[2][103] = {
+    {
+        5, 5, 50,
+        1, 1, 3, 1, 1,
+        1,1|P,3, 1, 1,
+        1, 1, 3, 3, 1,
+        3, 1, 3,1|G,3,
+        1, 1, 3, 3, 3,
+    },
+    {
+        10, 10, 50,
+        1, 1, 1, 1, 1, 1, 1, 3,3|G,3,
+        1, 1, 0, 1, 1, 1, 1, 2, 3, 3,
+        1, 0, 0, 0, 1, 1, 1, 2, 2, 2,
+        1, 0, 0, 1, 1, 1, 1, 2, 2, 2,
+        1, 1, 1, 1, 1,1|P,1, 2, 2, 2,
+        1, 1, 1, 1, 1, 1, 1, 2, 2, 2,
+        1, 1, 2, 2, 1, 2,2|G,2, 3, 3,
+        2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
+        2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
+        2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
+    },
+};
+
 
 typedef enum {
     MIRROR,
@@ -349,7 +374,7 @@ bool puzzle_is_finished(Puzzle *p)
     return true;
 }
 
-GameState update_puzzle(Puzzle *p, PlayerState *pstate)
+GameState update_puzzle(Puzzle *p, PlayerState *pstate, GameState default_rv)
 {
     if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_Q)) {
         return WORLD;
@@ -439,10 +464,16 @@ GameState update_puzzle(Puzzle *p, PlayerState *pstate)
 
     if (p->clicked_button == -1) {
         if (puzzle_is_finished(p)) {
-            return PUZZLE_WIN;
+            if (default_rv == PUZZLE_FUN) {
+                return PUZZLE_FUN_WIN;
+            } else if (default_rv == PUZZLE_TRAIN) {
+                return PUZZLE_TRAIN_WIN;
+            } else {
+                ASSERT(0, "This should not happen");
+            }
         }
     }
-    return PUZZLE;
+    return default_rv;
 }
 
 void render_button(Puzzle *p, Button *btn, Texture2D atlas)
@@ -689,13 +720,13 @@ void render_puzzle_win(Puzzle *p, PlayerState *pstate, Texture2D atlas)
     DrawTextEx(GetFontDefault(), instructions, ipos, p->rec.height / 20.f, 4.f, WHITE);
 }
 
-GameState update_puzzle_win(Puzzle *p)
+GameState update_puzzle_win(Puzzle *p, GameState default_rv)
 {
     (void) p;
     if (IsKeyPressed(KEY_ENTER)) {
         return WORLD;
     }
-    return PUZZLE_WIN;
+    return default_rv;
 }
 
 void fill_cells(Puzzle *p, unsigned char *puzzle_body)

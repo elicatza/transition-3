@@ -81,6 +81,7 @@ enum VisualColor {
 #define D0 (PDOOR | H2 | PMETA(0b00))
 #define D1 (PDOOR | H2 | PMETA(0b01)) /* Meta roomid */
 #define P1 (PPUZZLE1 | H1)
+#define P2 (PPUZZLE2 | H1)
 #define Ld (PWINDOW | UNWALKABLE | PMETA(0b01) | VWHITE | VSTRENGTH(0b1111)) /* Meta off on */
 #define Lb (PWINDOW | UNWALKABLE | PMETA(0b01) | VPINK | VSTRENGTH(0b0011))  /* Meta off on */
 #define B (PBLINDS | H1)  /* 0 down 1 up */
@@ -97,7 +98,7 @@ static u16 worlds[2][103] = {
         0, 0, 0, 0, D1, 0,
         G, G, G, G, G, G,
         G, G, G, G, G, G,
-        S, S, G, G, G, G,
+        S, S, G, G, P2, G,
         G, G, G, G, P1, G,
         G, G, G, B, G, G,
         0, 0, Ld,Ld,0, 0,
@@ -156,10 +157,12 @@ typedef struct Sleep {
 
 typedef struct {
     Texture2D atlas;
-    Puzzle *puzzle;
+    Puzzle *puzzle_fun;
+    Puzzle *puzzle_train;
+    size_t puzzle_fun_id;
+    size_t puzzle_train_id;
     World *world;
     GameState state;
-    size_t puzzle_id;
     PlayerState pstate;
     Sleep sleep;
 } GO;
@@ -203,8 +206,10 @@ int main(void)
     go.pstate.pain_max = 1.f;
     go.pstate.time = 0.25; /* 06:00 */
     go.pstate.did_faint = false;
-    go.puzzle_id = 0;
-    go.puzzle = load_puzzle(puzzle_array[go.puzzle_id]);
+    go.puzzle_fun_id = 0;
+    go.puzzle_train_id = 0;
+    go.puzzle_fun = load_puzzle(puzzle_fun_array[go.puzzle_fun_id]);
+    go.puzzle_train = load_puzzle(puzzle_train_array[go.puzzle_train_id]);
 
 #if defined(PLATFORM_WEB)
     emscripten_set_main_loop(loop, 0, 1);
@@ -217,7 +222,8 @@ int main(void)
 #endif
 
     UnloadTexture(go.atlas);
-    free_puzzle(go.puzzle);
+    free_puzzle(go.puzzle_fun);
+    free_puzzle(go.puzzle_train);
     free_world(go.world);
     CloseWindow();
     return 0;
@@ -227,18 +233,32 @@ int main(void)
 void loop(void)
 {
     switch (go.state) {
-        case PUZZLE: { go.state = update_puzzle(go.puzzle, &go.pstate); } break;
-        case PUZZLE_WIN: {
-            go.state = update_puzzle_win(go.puzzle);
+        case PUZZLE_FUN: { go.state = update_puzzle(go.puzzle_fun, &go.pstate, PUZZLE_FUN); } break;
+        case PUZZLE_FUN_WIN: {
+            go.state = update_puzzle_win(go.puzzle_fun, PUZZLE_FUN_WIN);
             if (go.state == WORLD) {
-                go.puzzle_id += 1;
-                if (go.puzzle_id >= sizeof puzzle_array / sizeof *puzzle_array) {
-                    WARNING("Out of puzzles");
+                go.puzzle_fun_id += 1;
+                if (go.puzzle_fun_id >= sizeof puzzle_fun_array / sizeof *puzzle_fun_array) {
+                    WARNING("Out of fun puzzles");
                     break;
                 }
-                Puzzle *p = load_puzzle(puzzle_array[go.puzzle_id]);
-                free_puzzle(go.puzzle);
-                go.puzzle = p;
+                Puzzle *p = load_puzzle(puzzle_fun_array[go.puzzle_fun_id]);
+                free_puzzle(go.puzzle_fun);
+                go.puzzle_fun = p;
+            }
+        } break;
+        case PUZZLE_TRAIN: { go.state = update_puzzle(go.puzzle_train, &go.pstate, PUZZLE_TRAIN); } break;
+        case PUZZLE_TRAIN_WIN: {
+            go.state = update_puzzle_win(go.puzzle_train, PUZZLE_TRAIN_WIN);
+            if (go.state == WORLD) {
+                go.puzzle_train_id += 1;
+                if (go.puzzle_train_id >= sizeof puzzle_train_array / sizeof *puzzle_train_array) {
+                    WARNING("Out of exercise puzzles");
+                    break;
+                }
+                Puzzle *p = load_puzzle(puzzle_train_array[go.puzzle_train_id]);
+                free_puzzle(go.puzzle_train);
+                go.puzzle_train = p;
             }
         } break;
         case WORLD: { go.state = update_world(go.world, &go.pstate); } break;
@@ -251,8 +271,10 @@ void loop(void)
 
     ClearBackground(BLACK);
     switch (go.state) {
-        case PUZZLE: { render_puzzle(go.puzzle, go.pstate, go.atlas); } break;
-        case PUZZLE_WIN: { render_puzzle_win(go.puzzle, &go.pstate, go.atlas); } break;
+        case PUZZLE_FUN: { render_puzzle(go.puzzle_fun, go.pstate, go.atlas); } break;
+        case PUZZLE_FUN_WIN: { render_puzzle_win(go.puzzle_fun, &go.pstate, go.atlas); } break;
+        case PUZZLE_TRAIN_WIN: { render_puzzle_win(go.puzzle_train, &go.pstate, go.atlas); } break;
+        case PUZZLE_TRAIN: { render_puzzle(go.puzzle_train, go.pstate, go.atlas); } break;
         case WORLD: { render_world(go.world, go.atlas); } break;
         case SLEEP: { render_sleep(go.world, go.sleep, go.pstate, go.atlas); } break;
         case FAINT: { render_sleep(go.world, go.sleep, go.pstate, go.atlas); } break;
@@ -574,6 +596,7 @@ GameState update_world(World *w, PlayerState *pstate)
         switch ((enum PhysicalType) MASK_PHYSICAL_T(cell.info)) {
             case PGROUND: break;
             case PEMPTY: break;
+            case PWINDOW: break;
             case PBLINDS: { toggle_blinds(w, cell.pos); } break;
             case PDOOR: {
                 int meta = MASK_META(cell.info) >> 6;
@@ -586,8 +609,11 @@ GameState update_world(World *w, PlayerState *pstate)
             } break;
             case PPUZZLE1: {
                 INFO("Puzzle 1");
-                return PUZZLE;
-
+                return PUZZLE_FUN;
+            } break;
+            case PPUZZLE2: {
+                go.sleep = init_sleep(*pstate);
+                return PUZZLE_TRAIN;
             } break;
             case PBED: {
                 go.sleep = init_sleep(*pstate);
