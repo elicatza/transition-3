@@ -1,6 +1,7 @@
 #include "core.h"
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 
 void render_hud_rhs(PlayerState pstate, float offx, Texture2D atlas)
 {
@@ -53,6 +54,24 @@ void render_hud_rhs(PlayerState pstate, float offx, Texture2D atlas)
     DrawText("Pain", x + padx, 4 * ysec + ysec * 0.5f, 24.f, C_PINK);
 }
 
+void format_date(PlayerState pstate, char *dest, size_t sz)
+{
+    ASSERT(sz >= 32);
+    int day = (int) floorf(pstate.time);
+    int weekday = day % 7;
+    char buf[12];
+    switch (weekday) {
+        case 0: { memcpy(buf, "Wednesday", sizeof "Wednesday"); } break;
+        case 1: { memcpy(buf, "Thursday", sizeof "Thursday"); } break;
+        case 2: { memcpy(buf, "Friday", sizeof "Friday"); } break;
+        case 3: { memcpy(buf, "Saturday", sizeof "Saturday"); } break;
+        case 4: { memcpy(buf, "Sunday", sizeof "Sunday"); } break;
+        case 5: { memcpy(buf, "Monday", sizeof "Monday"); } break;
+        case 6: { memcpy(buf, "Tuesday", sizeof "Tuesday"); } break;
+    }
+    snprintf(dest, sz, "Day %d\n\n%s", day, buf);
+}
+
 void format_time(PlayerState pstate, char *dest, size_t sz)
 {
     ASSERT(sz >= 6, "Buffer is too small");
@@ -76,5 +95,15 @@ void render_hud_lhs(PlayerState pstate, float offx, Texture2D atlas)
 
     char msg[6];
     format_time(pstate, msg, sizeof msg);
-    DrawText(msg, x + padx, ysec * 0.5f, 24.f, C_BLUE);
+    // DrawText(msg, x + padx, ysec * 1.4, 18.f, WHITE);
+
+    char day[38];
+    format_date(pstate, day, sizeof day);
+    size_t len = strlen(day);
+    day[len + 0] = '\n';
+    day[len + 1] = '\n';
+    format_time(pstate, (char *) (day + len + 2), 6);
+    INFO("%s", day);
+    // INFO("%s", day + len + 1);
+    DrawText(day, x + padx, ysec * 0.5f, 19.f, WHITE);
 }
