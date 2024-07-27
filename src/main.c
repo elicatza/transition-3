@@ -152,7 +152,6 @@ typedef struct Sleep {
     float init_time;
     float step_time;
     float end_time;
-    float elapsed_time;
 } Sleep;
 
 typedef struct {
@@ -173,7 +172,7 @@ GameState update_world(World *w, PlayerState *pstate);
 void render_world(World *w, Texture2D atlas);
 void free_world(World *w);
 GameState update_sleep(World **w, Sleep *s, PlayerState *pstate, GameState gs);
-void render_sleep(World *w, Sleep s, Texture2D atlas);
+void render_sleep(World *w, Sleep s, PlayerState pstate, Texture2D atlas);
 
 
 
@@ -203,6 +202,7 @@ int main(void)
     go.pstate.pain = 0.2f;
     go.pstate.pain_max = 1.f;
     go.pstate.time = 0.25; /* 06:00 */
+    go.pstate.did_faint = false;
     go.puzzle_id = 0;
     go.puzzle = load_puzzle(puzzle_array[go.puzzle_id]);
 
@@ -254,8 +254,8 @@ void loop(void)
         case PUZZLE: { render_puzzle(go.puzzle, go.pstate, go.atlas); } break;
         case PUZZLE_WIN: { render_puzzle_win(go.puzzle, &go.pstate, go.atlas); } break;
         case WORLD: { render_world(go.world, go.atlas); } break;
-        case SLEEP: { render_sleep(go.world, go.sleep, go.atlas); } break;
-        case FAINT: { render_sleep(go.world, go.sleep, go.atlas); } break;
+        case SLEEP: { render_sleep(go.world, go.sleep, go.pstate, go.atlas); } break;
+        case FAINT: { render_sleep(go.world, go.sleep, go.pstate, go.atlas); } break;
         default: { ASSERT(0, "Not implemented"); } break;
     }
 
@@ -420,7 +420,6 @@ Sleep init_sleep(PlayerState pstate)
     rv.end_time = pstate.time + sleep_time;
     rv.init_energy = pstate.energy;
     rv.end_energy = ((3.f / 8.f) / sleep_time) * 0.8f * pstate.energy_max; /* TODO Factor in lightness (0.8f) */
-    rv.elapsed_time = 0.f;
     return rv;
 }
 
@@ -433,7 +432,6 @@ Sleep init_faint(PlayerState pstate)
     rv.end_time = pstate.time + sleep_time;
     rv.init_energy = pstate.energy;
     rv.end_energy = ((3.f / 8.f) / sleep_time) * 0.5f * pstate.energy_max; /* TODO Factor in lightness (0.8f) */
-    rv.elapsed_time = 0.f;
     return rv;
 }
 
@@ -477,25 +475,69 @@ GameState update_sleep(World **w, Sleep *s, PlayerState *pstate, GameState gs)
         *w = load_world(0, 4);
         spawn_player(*w, 4);
         *s = init_faint(*pstate);
+        pstate->did_faint = true;
+        return SLEEP;
     }
-    s->elapsed_time += GetFrameTime();
-    float cur_time = s->step_time * s->elapsed_time + s->init_time;
-    INFO("Sleeping: %.2f: %.2f", s->elapsed_time, s->step_time);
-    if (cur_time >= s->end_time) {
+
+    pstate->time += s->step_time * GetFrameTime();
+    if (pstate->time >= s->end_time) {
         pstate->energy = s->end_energy;
-        pstate->time = cur_time;
+        pstate->did_faint = false;
+        // pstate->time = cur_time;
         return WORLD;
     }
     return SLEEP;
 }
 
-void render_sleep(World *w, Sleep s, Texture2D atlas)
+void render_sleep(World *w, Sleep s, PlayerState pstate, Texture2D atlas)
 {
+    (void) s;
     render_world(w, atlas);
+
+    Color bg = BLACK;
+    bg.a = 128;
+    Rectangle border = {
+        .x = w->wpos.x + 0.2f * w->wdim.x,
+        .y = w->wpos.y + 0.2f * w->wdim.y,
+        .width = (1.f - 0.4f) * w->wdim.x,
+        .height = (1.f - 0.4f) * w->wdim.y,
+    };
+    DrawRectangleRec(border, bg);
+    DrawRectangleLinesEx(border, 5.f, BLACK);
+
+    char *msg = pstate.did_faint ? "Fainted" : "Sleeping";
+    Vector2 sz = MeasureTextEx(GetFontDefault(), msg, w->wdim.y / 10.f, 4.f);
+    Vector2 pos = {
+        .x = w->wpos.x + 0.5f * (w->wdim.x  - sz.x),
+        .y = w->wpos.y + 0.3f * (w->wdim.y - sz.y),
+    };
+    DrawTextEx(GetFontDefault(), msg, pos, w->wdim.x / 10.f, 4.f, WHITE);
+
+
+    char time[6];
+    format_time(pstate, time, sizeof time);
+    Vector2 tsz = MeasureTextEx(GetFontDefault(), time, w->wdim.y / 10.f, 4.f);
+    Vector2 tpos = {
+        .x = w->wpos.x + 0.5f * (w->wdim.x  - tsz.x),
+        .y = w->wpos.y + 0.3f * (w->wdim.y - tsz.y) + sz.y,
+    };
+    DrawTextEx(GetFontDefault(), time, tpos, w->wdim.x / 10.f, 4.f, WHITE);
+    
+
+    char *instructions = "[enter]";
+    Vector2 isz = MeasureTextEx(GetFontDefault(), instructions, w->wdim.y / 20.f, 2.f);
+    Vector2 ipos = {
+        .x = w->wpos.x + 0.5f * (w->wdim.x  - isz.x),
+        .y = w->wpos.y + 0.3f * (w->wdim.y - isz.y) + sz.y + tsz.y,
+    };
+    DrawTextEx(GetFontDefault(), instructions, ipos, w->wdim.y / 20.f, 4.f, WHITE);
 }
 
 GameState update_world(World *w, PlayerState *pstate)
 {
+    if (IsKeyPressed(KEY_T)) {
+        pstate->time += 0.002f;
+    }
     Player new_p = w->player;
     if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) {
         new_p.pos.y += -1;
@@ -665,7 +707,8 @@ void render_world(World *w, Texture2D atlas)
     render_world_cells(w, atlas);
     render_world_player(w);
     render_world_height_lines(w);
-    render_hud(go.pstate, w->wpos.x + w->wdim.x, atlas);
+    render_hud_rhs(go.pstate, w->wpos.x + w->wdim.x, atlas);
+    render_hud_lhs(go.pstate, w->wpos.x + w->wdim.x, atlas);
     DrawRectangleLinesEx((Rectangle) { w->wpos.x, w->wpos.y, w->wdim.x, w->wdim.y }, 2.f, RED);
 }
 

@@ -45,10 +45,12 @@ typedef struct {
     float energy_max;
     float time;  /* 0-1 ranges a whole day */
     float energy_lim;
+    bool did_faint;
 } PlayerState;
 
-void render_hud(PlayerState pstate, float offx, Texture2D atlas);
-
+void render_hud_rhs(PlayerState pstate, float offx, Texture2D atlas);
+void render_hud_lhs(PlayerState pstate, float offx, Texture2D atlas);
+void format_time(PlayerState pstate, char *dest, size_t sz);
 #ifdef TEST
 #define TEST_ASSERT(statement) test_assert(statement, #statement)
 

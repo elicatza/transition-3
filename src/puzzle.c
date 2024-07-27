@@ -653,7 +653,8 @@ void render_puzzle(Puzzle *p, PlayerState pstate, Texture2D atlas)
             render_button(p, &p->button_case[i], atlas);
         }
     }
-    render_hud(pstate, p->rec.x + p->rec.width, atlas);
+    render_hud_rhs(pstate, p->rec.x + p->rec.width, atlas);
+    render_hud_lhs(pstate, p->rec.x + p->rec.width, atlas);
 }
 
 void render_puzzle_win(Puzzle *p, PlayerState *pstate, Texture2D atlas)
