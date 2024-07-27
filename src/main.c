@@ -304,6 +304,11 @@ u8 get_meta_at_pos(World *w, U32x2 pos)
     return MASK_META(w->cell_case[pos.y * w->cols + pos.x].info) >> 6;
 }
 
+enum PhysicalType get_type_at_pos(World *w, U32x2 pos)
+{
+    return MASK_PHYSICAL_T(w->cell_case[pos.y * w->cols + pos.x].info);
+}
+
 
 Color get_color_at_pos(World *w, U32x2 pos)
 {
@@ -394,19 +399,22 @@ void apply_lighting(World *w)
     for (row = 0; row < w->rows; ++row) {
         for (col = 0; col < w->cols; ++col) {
             U32x2 pos = { col, row };
-            u8 brightness = get_brightness_at_pos(w, pos);
+            enum PhysicalType type = get_type_at_pos(w, pos);
+            if (type != PWINDOW) continue;
+
             u8 off = get_meta_at_pos(w, pos);
             if (off) continue;
+
+            u8 b = get_brightness_at_pos(w, pos);
             Color color = get_color_at_pos(w, pos);
-            int b = brightness;
             int nx, ny;
             for (nx = 0; nx < (int) w->cols; ++nx) {
                 for (ny = 0; ny < (int) w->rows; ++ny) {
+                    if (nx == col && ny == row) continue;
+                    // inverse square law light
                     float val = 1.f / powf(abs((int) col - nx) + abs((int) row - ny), 2.f);
                     size_t i = ny * w->cols + nx;
-                    // Color old = w->cell_case[i].color;
                     w->cell_case[i].color = blend(w->cell_case[i].color, color, val * b);
-                    // old = w->cell_case[i].color;
                 }
             }
         }
@@ -627,7 +635,7 @@ GameState update_world(World *w, PlayerState *pstate)
 
     size_t i;
     for (i = 0; i < case_len(w->cell_case); ++i) {
-        w->cell_case[i].color = WHITE;
+        w->cell_case[i].color = BLACK;
     }
     apply_lighting(w);
     return WORLD;
@@ -747,8 +755,7 @@ void fill_world(World *w, u16 *wbody)
             Cell cell;
             cell.pos = (U32x2) { col, row };
             cell.info = info;
-            // cell.lighting = 0;
-            cell.color = WHITE;
+            cell.color = BLACK;
             case_push(w->cell_case, cell);
         }
     }

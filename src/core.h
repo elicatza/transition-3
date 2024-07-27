@@ -47,6 +47,7 @@ typedef struct {
     float energy_max;
     float time;  /* 0-1 ranges a whole day */
     float energy_lim;
+    float brightness;  /* 0..1 */
     bool did_faint;
 } PlayerState;
 

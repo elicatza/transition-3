@@ -757,7 +757,6 @@ void fill_players(Puzzle *p, unsigned char *puzzle_body)
     for (row = 0; row < p->rows; ++row) {
         for (col = 0; col < p->cols; ++col) {
             if ((puzzle_body[row * p->cols + col] & 0b1100) == P) {
-                INFO("Found player");
                 Player player = {
                     .pos = (Vector2) {
                         .x = col,
