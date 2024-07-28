@@ -51,6 +51,7 @@ typedef struct {
     float energy_lim;
     float brightness;  /* 0..1 */
     bool did_faint;
+    int face_id;
 } PlayerState;
 
 void render_hud_rhs(PlayerState pstate, float offx, Texture2D atlas);

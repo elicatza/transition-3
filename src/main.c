@@ -5,6 +5,7 @@
 #include "core.h"
 #include "../assets/atlas.h"
 #include "../assets/world_atlas.h"
+#include "../assets/player_atlas.h"
 #define CASE_IMPLEMENTATION
 #include "case.h"
 #define NO_TEMPLATE
@@ -174,6 +175,7 @@ typedef struct Sleep {
 typedef struct {
     Texture2D atlas;
     Texture2D world_atlas;
+    Texture2D player_atlas;
     Puzzle *puzzle_fun;
     Puzzle *puzzle_train;
     Puzzle *puzzle_boss;
@@ -191,10 +193,10 @@ GO go = { 0 };
 /* Door 0, 1, 2, 3, spawnpoint */
 World *load_world(u16 world_id, u8 spawn);
 GameState update_world(World *w, PlayerState *pstate);
-void render_world(World *w, Texture2D atlas);
+void render_world(World *w, PlayerState pstate, Texture2D atlas, Texture2D player_atlas);
 void free_world(World *w);
 GameState update_sleep(World **w, Sleep *s, PlayerState *pstate, GameState gs);
-void render_sleep(World *w, Sleep s, PlayerState pstate, Texture2D atlas);
+void render_sleep(World *w, Sleep s, PlayerState pstate, Texture2D atlas, Texture2D player_atlas);
 
 
 
@@ -223,8 +225,17 @@ int main(void)
         .mipmaps = 1,
     };
 
+    Image player_atlas = {
+        .data = PLAYER_ATLAS_DATA,
+        .width = PLAYER_ATLAS_WIDTH,
+        .height = PLAYER_ATLAS_HEIGHT,
+        .format = PLAYER_ATLAS_FORMAT,
+        .mipmaps = 1,
+    };
+
     go.atlas = LoadTextureFromImage(atlas_img);
     go.world_atlas = LoadTextureFromImage(world_atlas);
+    go.player_atlas = LoadTextureFromImage(player_atlas);
     go.world = load_world(0, 4);
     go.state = WORLD;
     go.pstate.energy = 0.3f;
@@ -234,6 +245,7 @@ int main(void)
     go.pstate.pain_max = 1.f;
     go.pstate.time = 0.25; /* 06:00 */
     go.pstate.did_faint = false;
+    go.pstate.face_id = 0;
     go.puzzle_fun_id = 0;
     go.puzzle_train_id = 0;
     go.puzzle_fun = load_puzzle(puzzle_fun_array[go.puzzle_fun_id]);
@@ -308,9 +320,9 @@ void loop(void)
         case PUZZLE_TRAIN: { render_puzzle(go.puzzle_train, go.pstate, go.atlas); } break;
         case PUZZLE_BOSS_WIN: { render_puzzle_win(go.puzzle_boss, &go.pstate, go.atlas); } break;
         case PUZZLE_BOSS: { render_puzzle(go.puzzle_boss, go.pstate, go.atlas); } break;
-        case WORLD: { render_world(go.world, go.world_atlas); } break;
-        case SLEEP: { render_sleep(go.world, go.sleep, go.pstate, go.world_atlas); } break;
-        case FAINT: { render_sleep(go.world, go.sleep, go.pstate, go.atlas); } break;
+        case WORLD: { render_world(go.world, go.pstate, go.world_atlas, go.player_atlas); } break;
+        case SLEEP: { render_sleep(go.world, go.sleep, go.pstate, go.world_atlas, go.player_atlas); } break;
+        case FAINT: { render_sleep(go.world, go.sleep, go.pstate, go.atlas, go.player_atlas); } break;
     }
 
     EndDrawing();
@@ -530,10 +542,10 @@ GameState update_sleep(World **w, Sleep *s, PlayerState *pstate, GameState gs)
     return SLEEP;
 }
 
-void render_sleep(World *w, Sleep s, PlayerState pstate, Texture2D atlas)
+void render_sleep(World *w, Sleep s, PlayerState pstate, Texture2D atlas, Texture2D player_atlas)
 {
     (void) s;
-    render_world(w, atlas);
+    render_world(w, pstate, atlas, player_atlas);
 
     Color bg = BLACK;
     bg.a = 128;
@@ -580,13 +592,46 @@ GameState update_world(World *w, PlayerState *pstate)
         pstate->time += 0.002f;
     }
     Player new_p = w->player;
+    int new_face_id;
     if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) {
+        switch (pstate->face_id) {
+            case 0: { new_face_id = 2; } break;
+            case 1: { new_face_id = 2; } break;
+            case 2: { new_face_id = 5; } break;
+            case 3: { new_face_id = 2; } break;
+            case 4: { new_face_id = 0; } break;
+            case 5: { new_face_id = 4; } break;
+        }
         new_p.pos.y += -1;
     } else if (IsKeyPressed(KEY_A) || IsKeyPressed(KEY_LEFT)) {
+            switch (pstate->face_id) {
+                case 0: { new_face_id = 1; } break;
+                case 1: { new_face_id = 5; } break;
+                case 2: { new_face_id = 1; } break;
+                case 3: { new_face_id = 0; } break;
+                case 4: { new_face_id = 1; } break;
+                case 5: { new_face_id = 3; } break;
+            }
         new_p.pos.x += -1;
     } else if (IsKeyPressed(KEY_S) || IsKeyPressed(KEY_DOWN)) {
+        switch (pstate->face_id) {
+            case 0: { new_face_id = 4; } break;
+            case 1: { new_face_id = 4; } break;
+            case 2: { new_face_id = 0; } break;
+            case 3: { new_face_id = 4; } break;
+            case 4: { new_face_id = 5; } break;
+            case 5: { new_face_id = 2; } break;
+        }
         new_p.pos.y += 1;
     } else if (IsKeyPressed(KEY_D) || IsKeyPressed(KEY_RIGHT)) {
+            switch (pstate->face_id) {
+                case 0: { new_face_id = 3; } break;
+                case 1: { new_face_id = 0; } break;
+                case 2: { new_face_id = 3; } break;
+                case 3: { new_face_id = 5; } break;
+                case 4: { new_face_id = 3; } break;
+                case 5: { new_face_id = 1; } break;
+            }
         new_p.pos.x += 1;
     }
 
@@ -598,6 +643,7 @@ GameState update_world(World *w, PlayerState *pstate)
         }
         if (is_valid_wspos(w, new_p.pos, new_p.height)) {
             if (penalty) {
+                pstate->face_id = new_face_id;
                 pstate->energy -= PENALTY_ENERGY;
                 if (pstate->energy < 0) {
                     pstate->energy = 0.f;
@@ -729,10 +775,38 @@ void render_world_cells(World *w, Texture2D atlas)
     }
 }
 
-void render_world_player(World *w)
+void render_world_player(World *w, PlayerState pstate, Texture2D player_atlas)
 {
     Vector2 vs_pos = vspos_of_ws(w, w->player.pos);
-    DrawRectangleV(vs_pos, (Vector2) { w->cell_width, w->cell_width }, PINK);
+
+    Rectangle dest = {
+        .x = vs_pos.x,
+        .y = vs_pos.y,
+        .width = w->cell_width,
+        .height = w->cell_width,
+    };
+    Rectangle src = {
+        .x = 0.f,
+        .y = 0.f,
+        .width = 16.f,
+        .height = 16.f,
+    };
+    if (pstate.face_id == 1 || pstate.face_id == 3) {
+        src.x = 0.f;
+        src.y = 0.f;
+    }
+    else if (pstate.face_id == 2 || pstate.face_id == 4) {
+        src.x = 16.f;
+        src.y = 0.f;
+    }
+    else if (pstate.face_id == 0 || pstate.face_id == 5) {
+        src.x = 2.f * 16.f;
+        src.y = 0.f;
+    }
+
+    DrawRectangleV(vs_pos, (Vector2) { w->cell_width, w->cell_width }, GRAY);
+
+    DrawTexturePro(player_atlas, src, dest, (Vector2) { 0.f, 0.f }, 0, WHITE);
 }
 
 void render_world_height_lines(World *w)
@@ -775,7 +849,7 @@ void render_world_height_lines(World *w)
 }
 
 
-void render_world(World *w, Texture2D atlas)
+void render_world(World *w, PlayerState pstate, Texture2D atlas, Texture2D player_atlas)
 {
     float width = GetScreenWidth();
     float height = GetScreenHeight();
@@ -787,7 +861,7 @@ void render_world(World *w, Texture2D atlas)
     w->wdim.y = w->cell_width * w->rows;
 
     render_world_cells(w, atlas);
-    render_world_player(w);
+    render_world_player(w, pstate, player_atlas);
     // render_world_height_lines(w);
     render_hud_rhs(go.pstate, w->wpos.x + w->wdim.x, atlas);
     render_hud_lhs(go.pstate, w->wpos.x + w->wdim.x, atlas);

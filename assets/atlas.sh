@@ -21,3 +21,8 @@ magick \
 magick \
     \( ./assets/sprites/w_floor.png ./assets/sprites/w_bed.png ./assets/sprites/w_bed_end.png ./assets/sprites/w_window.png ./assets/sprites/w_door.png ./assets/sprites/w_table.png ./assets/sprites/w_blinds.png ./assets/sprites/w_boss.png ./assets/sprites/w_table_tl.png ./assets/sprites/w_table_tr.png ./assets/sprites/w_table_bl.png ./assets/sprites/w_table_br.png ./assets/sprites/w_chair.png ./assets/sprites/w_train.png +append \) \
     -append ./assets/world_atlas.png
+
+
+magick \
+    \( ./assets/sprites/player_pain.png ./assets/sprites/player_fatigue.png ./assets/sprites/player_sad.png ./assets/sprites/player_main.png ./assets/sprites/player_happy.png +append \) \
+    -append ./assets/player_atlas.png

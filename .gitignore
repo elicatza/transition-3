@@ -8,4 +8,5 @@ assets/*
 !assets/atlas.sh
 !assets/atlas.h
 !assets/world_atlas.h
+!assets/player_atlas.h
 .ccls-cache
