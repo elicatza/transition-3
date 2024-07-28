@@ -19,5 +19,5 @@ magick \
     # \( musicals/sunday-in-the-park-with-george/cover.png musicals/sweeney-todd/cover.png musicals/the-25th-annual-putnam-county-spelling-bee/cover.png musicals/the-last-five-years/cover.png musicals/the-light-in-the-piazza/cover.png musicals/urintown/cover.png musicals/west-side-story/cover.png +append \) \
 
 magick \
-    \( ./assets/sprites/w_floor.png ./assets/sprites/w_bed.png ./assets/sprites/w_bed_end.png ./assets/sprites/w_window.png ./assets/sprites/w_door.png ./assets/sprites/w_table.png ./assets/sprites/w_blinds.png ./assets/sprites/w_boss.png +append \) \
+    \( ./assets/sprites/w_floor.png ./assets/sprites/w_bed.png ./assets/sprites/w_bed_end.png ./assets/sprites/w_window.png ./assets/sprites/w_door.png ./assets/sprites/w_table.png ./assets/sprites/w_blinds.png ./assets/sprites/w_boss.png ./assets/sprites/w_table_tl.png ./assets/sprites/w_table_tr.png ./assets/sprites/w_table_bl.png ./assets/sprites/w_table_br.png ./assets/sprites/w_chair.png ./assets/sprites/w_train.png +append \) \
     -append ./assets/world_atlas.png

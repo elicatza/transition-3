@@ -45,18 +45,22 @@
 #define MASK_BRIGHTNESS(a) ((a) & 0b11110000 << 8)
 
 enum PhysicalType {
-    PEMPTY = 0b0000,   /* Don't render anything */
-    PGROUND = 0b0001,  /* Walkable */
-    PBLINDS = 0b0010,  /* -Energy +Light */
-    PBED = 0b0011,     /* Restart day / spawn */
-    PDOOR = 0b0100,    /* Finish when exit / Big puzzle */
-    PPUZZLE1 = 0b0101, /* Puzzle for exercise */
-    PPUZZLE2 = 0b0110, /* Puzzle for fun */
-    PWINDOW = 0b0111,  /* Window for seeing things */
-    PBED_END = 0b1000, /* Bed part II */
-    PTABLE = 0b1001,   /* You know */
-    PBOSS = 0b1010,   /* You know */
-    // PWALL = 0b1001,  /* Window for seeing things */
+    PEMPTY = 0b0000,    /* Don't render anything */
+    PGROUND = 0b0001,   /* Walkable */
+    PBLINDS = 0b0010,   /* -Energy +Light */
+    PBED = 0b0011,      /* Restart day / spawn */
+    PDOOR = 0b0100,     /* Finish when exit / Big puzzle */
+    PPUZZLE1 = 0b0101,  /* Puzzle for exercise */
+    PPUZZLE2 = 0b0110,  /* Puzzle for fun */
+    PWINDOW = 0b0111,   /* Window for seeing things */
+    PBED_END = 0b1000,  /* Bed part II */
+    PTABLE = 0b1001,    /* You know */
+    PBOSS = 0b1010,     /* You know */
+    PTABLE_TL = 0b1011, /* Main table */
+    PTABLE_BL = 0b1100, /* Main table */
+    PTABLE_TR = 0b1101, /* Main table */
+    PTABLE_BR = 0b1110, /* Main table */
+    // PWALL = 0b1001, /* Window for seeing things */
 };
 
 enum PHeight {
@@ -87,12 +91,16 @@ enum VisualColor {
 #define D0 (PDOOR | H1 | PMETA(0b00))
 #define D1 (PDOOR | H1 | PMETA(0b01)) /* Meta roomid */
 #define Db (PBOSS | H1 | PMETA(0b10)) /* Boss door */
-#define P1 (PPUZZLE1 | H1 | VPINK | VSTRENGTH(0b1111))
+#define P1 (PPUZZLE1 | H2 | VPINK | VSTRENGTH(0b1111))
 #define P2 (PPUZZLE2 | H1 | VBLUE | VSTRENGTH(0b1111))
 #define Ld (PWINDOW | UNWALKABLE | PMETA(0b01) | VWHITE | VSTRENGTH(0b1111)) /* Meta off on */
 #define Lb (PWINDOW | UNWALKABLE | PMETA(0b01) | VPINK | VSTRENGTH(0b0011))  /* Meta off on */
-#define B (PBLINDS | H1)  /* 0 down 1 up */
-#define T (PTABLE | H2)   /* 0 down 1 up */
+#define B (PBLINDS | H1)
+#define T (PTABLE | H3)
+#define Tl (PTABLE_TL | H3)
+#define Tr (PTABLE_TR | H3)
+#define Bl (PTABLE_BL | H3)
+#define Br (PTABLE_BR | H3)
 
 /**
  * Header:
@@ -114,14 +122,14 @@ static u16 worlds[2][103] = {
     {
         6, 9,
         0, 0, 0, 0, 0, 0,
-        0, G, G, G, P2,G,
-        Db,G, G, G, G, G,
+        0, G, G, Tl,Tr,G,
+        Db,G, G, Bl,Br,G,
+        0, G, G, G, P1,G,
+        0, P2,G, G, G, G,
         0, G, G, G, G, G,
-        0, P1,G, G, G, G,
         0, G, G, G, G, G,
         0, G, G, G, G, G,
-        0, G, G, G, G, G,
-        0, G,G,G,D0,G,
+        0, 0, 0, 0,D0, 0,
     }
 };
 
@@ -624,6 +632,10 @@ GameState update_world(World *w, PlayerState *pstate)
         // Interact
         Cell cell = cell_at_pos(w, w->player.pos);
         switch ((enum PhysicalType) MASK_PHYSICAL_T(cell.info)) {
+            case PTABLE_BL: break;
+            case PTABLE_BR: break;
+            case PTABLE_TL: break;
+            case PTABLE_TR: break;
             case PGROUND: break;
             case PEMPTY: break;
             case PWINDOW: break;
@@ -700,20 +712,24 @@ void render_world_cells(World *w, Texture2D atlas)
         };
         Vector2 center = { 0.f, 0.f };
 
-        Color color = PURPLE;
+        Color color = WHITE;
         float rotation = 0.f;
         switch ((enum PhysicalType) MASK_PHYSICAL_T(cell.info)) {
-            case (PEMPTY): { color = BLACK; } break;
-            case (PGROUND): { color = WHITE; src.x = 0.f; src.y = 0.f; } break;
-            case (PBLINDS): { color = WHITE; src.x = 6.f * 16.f; src.y = 0.f; } break;
-            case (PWINDOW): { color = WHITE; src.x = 48.f; src.y = 0.f; } break;
-            case (PBED): { color = WHITE; src.x = 16.f; src.y = 0.f; } break;
-            case (PBED_END): { color = WHITE; src.x = 32.f; src.y = 0.f; } break;
-            case (PDOOR): { color = WHITE; src.x = 4.f * 16.f, src.y = 0.f; } break;
-            case (PPUZZLE1): { color = YELLOW; } break;
-            case (PPUZZLE2): { color = VIOLET; } break;
-            case (PTABLE): { color = WHITE; src.x = 5.f * 16.f; src.y = 0.f; } break;
-            case (PBOSS): { color = WHITE; src.x = 7.f * 16.f; src.y = 0.f; } break;
+            case (PEMPTY): { continue; } break;
+            case (PGROUND): { src.x = 0.f; src.y = 0.f; } break;
+            case (PBLINDS): { src.x = 6.f * 16.f; src.y = 0.f; } break;
+            case (PWINDOW): { src.x = 48.f; src.y = 0.f; } break;
+            case (PBED): { src.x = 16.f; src.y = 0.f; } break;
+            case (PBED_END): { src.x = 32.f; src.y = 0.f; } break;
+            case (PDOOR): { src.x = 4.f * 16.f, src.y = 0.f; } break;
+            case (PTABLE): { src.x = 5.f * 16.f; src.y = 0.f; } break;
+            case (PBOSS): { src.x = 7.f * 16.f; src.y = 0.f; } break;
+            case (PTABLE_TL): { src.x = 8.f * 16.f; src.y = 0.f; } break;
+            case (PTABLE_TR): { src.x = 9.f * 16.f; src.y = 0.f; } break;
+            case (PTABLE_BL): { src.x = 10.f * 16.f; src.y = 0.f; } break;
+            case (PTABLE_BR): { src.x = 11.f * 16.f; src.y = 0.f; } break;
+            case (PPUZZLE1): { src.x = 12.f * 16.f; src.y = 0.f; } break;
+            case (PPUZZLE2): { src.x = 13.f * 16.f; src.y = 0.f; } break;
         }
 
         color = apply_shade(color, 0.4f);
@@ -788,7 +804,7 @@ void render_world(World *w, Texture2D atlas)
 
     render_world_cells(w, atlas);
     render_world_player(w);
-    render_world_height_lines(w);
+    // render_world_height_lines(w);
     render_hud_rhs(go.pstate, w->wpos.x + w->wdim.x, atlas);
     render_hud_lhs(go.pstate, w->wpos.x + w->wdim.x, atlas);
     // DrawRectangleLinesEx((Rectangle) { w->wpos.x, w->wpos.y, w->wdim.x, w->wdim.y }, 2.f, RED);
