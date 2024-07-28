@@ -45,14 +45,18 @@
 #define MASK_BRIGHTNESS(a) ((a) & 0b11110000 << 8)
 
 enum PhysicalType {
-    PEMPTY = 0b000,   /* Don't render anything */
-    PGROUND = 0b001,  /* Walkable */
-    PBLINDS = 0b010,  /* -Energy +Light */
-    PBED = 0b011,     /* Restart day / spawn */
-    PDOOR = 0b100,    /* Finish when exit / Big puzzle */
-    PPUZZLE1 = 0b101, /* Puzzle for exercise */
-    PPUZZLE2 = 0b110, /* Puzzle for fun */
-    PWINDOW = 0b111,  /* Window for seeing things */
+    PEMPTY = 0b0000,   /* Don't render anything */
+    PGROUND = 0b0001,  /* Walkable */
+    PBLINDS = 0b0010,  /* -Energy +Light */
+    PBED = 0b0011,     /* Restart day / spawn */
+    PDOOR = 0b0100,    /* Finish when exit / Big puzzle */
+    PPUZZLE1 = 0b0101, /* Puzzle for exercise */
+    PPUZZLE2 = 0b0110, /* Puzzle for fun */
+    PWINDOW = 0b0111,  /* Window for seeing things */
+    PBED_END = 0b1000, /* Bed part II */
+    PTABLE = 0b1001,   /* You know */
+    PBOSS = 0b1010,   /* You know */
+    // PWALL = 0b1001,  /* Window for seeing things */
 };
 
 enum PHeight {
@@ -77,15 +81,18 @@ enum VisualColor {
 #define VSTRENGTH(a) ((a) << 12)
 #define PMETA(a) ((a) <<  6)
 
-#define S (PBED | H2 | VSPAWN)
+#define S (PBED | H2)
+#define Se (PBED_END | H2 | VSPAWN)
 #define G (PGROUND | H1)
-#define D0 (PDOOR | H2 | PMETA(0b00))
-#define D1 (PDOOR | H2 | PMETA(0b01)) /* Meta roomid */
+#define D0 (PDOOR | H1 | PMETA(0b00))
+#define D1 (PDOOR | H1 | PMETA(0b01)) /* Meta roomid */
+#define Db (PBOSS | H1 | PMETA(0b10)) /* Boss door */
 #define P1 (PPUZZLE1 | H1 | VPINK | VSTRENGTH(0b1111))
 #define P2 (PPUZZLE2 | H1 | VBLUE | VSTRENGTH(0b1111))
 #define Ld (PWINDOW | UNWALKABLE | PMETA(0b01) | VWHITE | VSTRENGTH(0b1111)) /* Meta off on */
 #define Lb (PWINDOW | UNWALKABLE | PMETA(0b01) | VPINK | VSTRENGTH(0b0011))  /* Meta off on */
 #define B (PBLINDS | H1)  /* 0 down 1 up */
+#define T (PTABLE | H2)   /* 0 down 1 up */
 
 /**
  * Header:
@@ -96,11 +103,11 @@ enum VisualColor {
 static u16 worlds[2][103] = {
     {
         6, 7,
-        0, 0, 0, 0, D1, 0,
+        0, 0, 0, 0, D1,0,
         G, G, G, G, G, G,
-        G, G, G, G, G, G,
-        S, S, G, G, P2, G,
-        G, G, G, G, P1, G,
+        T, G, G, G, G, G,
+        S, Se,G, G, G ,G,
+        G, G, G, G, G ,G,
         G, G, G, B, G, G,
         0, 0, Ld,Ld,0, 0,
     },
@@ -108,13 +115,13 @@ static u16 worlds[2][103] = {
         6, 9,
         0, 0, 0, 0, 0, 0,
         0, G, G, G, P2,G,
-        0, G, G, G, G, G,
+        Db,G, G, G, G, G,
         0, G, G, G, G, G,
         0, P1,G, G, G, G,
-        0, S, G, G, G, G,
         0, G, G, G, G, G,
         0, G, G, G, G, G,
-        0, 0, 0, 0, D0, 0,
+        0, G, G, G, G, G,
+        0, G,G,G,D0,G,
     }
 };
 
@@ -287,7 +294,7 @@ void loop(void)
         case PUZZLE_TRAIN_WIN: { render_puzzle_win(go.puzzle_train, &go.pstate, go.atlas); } break;
         case PUZZLE_TRAIN: { render_puzzle(go.puzzle_train, go.pstate, go.atlas); } break;
         case WORLD: { render_world(go.world, go.world_atlas); } break;
-        case SLEEP: { render_sleep(go.world, go.sleep, go.pstate, go.atlas); } break;
+        case SLEEP: { render_sleep(go.world, go.sleep, go.pstate, go.world_atlas); } break;
         case FAINT: { render_sleep(go.world, go.sleep, go.pstate, go.atlas); } break;
         default: { ASSERT(0, "Not implemented"); } break;
     }
@@ -421,7 +428,7 @@ void apply_lighting(World *w)
             int nx, ny;
             for (nx = 0; nx < (int) w->cols; ++nx) {
                 for (ny = 0; ny < (int) w->rows; ++ny) {
-                    if (nx == col && ny == row) continue;
+                    if (nx == (int) col && ny == (int) row) continue;
                     // inverse square law light
                     float val = 1.f / powf(abs((int) col - nx) + abs((int) row - ny), 2.f);
                     size_t i = ny * w->cols + nx;
@@ -615,7 +622,11 @@ GameState update_world(World *w, PlayerState *pstate)
         switch ((enum PhysicalType) MASK_PHYSICAL_T(cell.info)) {
             case PGROUND: break;
             case PEMPTY: break;
+            case PBOSS: {
+                ASSERT(0, "Not implemented");
+            } break;
             case PWINDOW: break;
+            case PTABLE: break;
             case PBLINDS: { toggle_blinds(w, cell.pos); } break;
             case PDOOR: {
                 int meta = MASK_META(cell.info) >> 6;
@@ -635,6 +646,10 @@ GameState update_world(World *w, PlayerState *pstate)
                 return PUZZLE_TRAIN;
             } break;
             case PBED: {
+                go.sleep = init_sleep(*pstate);
+                return SLEEP;
+            } break;
+            case PBED_END: {
                 go.sleep = init_sleep(*pstate);
                 return SLEEP;
             } break;
@@ -667,9 +682,6 @@ void render_world_cells(World *w, Texture2D atlas)
     for (i = 0; i < case_len(w->cell_case); ++i) {
         Cell cell = w->cell_case[i];
         Vector2 vspos = vspos_of_ws(w, cell.pos);
-        Vector2 dim;
-        dim.x = w->cell_width;
-        dim.y = w->cell_width;
 
         Rectangle src = {
             .x = 0,
@@ -677,42 +689,39 @@ void render_world_cells(World *w, Texture2D atlas)
             .width = 16.f,
             .height = 16.f,
         };
-
-        Color color = PURPLE;
-        switch ((enum PhysicalType) MASK_PHYSICAL_T(cell.info)) {
-            case (PEMPTY): { color = BLACK; } break;
-            case (PGROUND): {
-                color = BROWN;
-                src.x = 0.f;
-                src.y = 0.f;
-            } break;
-            case (PBLINDS): { color = RED; } break;
-            case (PWINDOW): { color = WHITE; } break;
-            case (PBED): {
-                color = WHITE;
-                src.x = 16.f;
-                src.y = 0.f;
-            } break;
-            case (PDOOR): { color = ORANGE; } break;
-            case (PPUZZLE1): { color = YELLOW; } break;
-            case (PPUZZLE2): { color = VIOLET; } break;
-        }
-
         Rectangle dest = {
             .x = vspos.x,
             .y = vspos.y,
             .width = w->cell_width,
             .height = w->cell_width,
         };
-        DrawTexturePro(atlas, src, dest, (Vector2) { 0.f, 0.f}, 0.f, color); // Draw a part of a texture defined by a rectangle with 'pro' parameters
+        Vector2 center = { 0.f, 0.f };
+
+        Color color = PURPLE;
+        float rotation = 0.f;
+        switch ((enum PhysicalType) MASK_PHYSICAL_T(cell.info)) {
+            case (PEMPTY): { color = BLACK; } break;
+            case (PGROUND): { color = WHITE; src.x = 0.f; src.y = 0.f; } break;
+            case (PBLINDS): { color = WHITE; src.x = 6.f * 16.f; src.y = 0.f; } break;
+            case (PWINDOW): { color = WHITE; src.x = 48.f; src.y = 0.f; } break;
+            case (PBED): { color = WHITE; src.x = 16.f; src.y = 0.f; } break;
+            case (PBED_END): { color = WHITE; src.x = 32.f; src.y = 0.f; } break;
+            case (PDOOR): { color = WHITE; src.x = 4.f * 16.f, src.y = 0.f; } break;
+            case (PPUZZLE1): { color = YELLOW; } break;
+            case (PPUZZLE2): { color = VIOLET; } break;
+            case (PTABLE): { color = WHITE; src.x = 5.f * 16.f; src.y = 0.f; } break;
+            case (PBOSS): { color = WHITE; src.x = 7.f * 16.f; src.y = 0.f; } break;
+        }
+
+        color = apply_shade(color, 0.4f);
+        color = blend(color, cell.color, 0.4);
+        DrawTexturePro(atlas, src, dest, center, rotation, color); // Draw a part of a texture defined by a rectangle with 'pro' parameters
         // cell.lighting = 0.5 + (lightness / 30.f);
         // color = blend(color, C_BLUE, cell.lighting + 5);
         // color = apply_tint(color, cell.lighting);
         // color = lerp(color, (Color) { 0, 0, 0, 255 }, 0.5 + (cell.lighting / 30.f));
 
 
-        // color = apply_shade(color, 0.4f);
-        // color = blend(color, cell.color, 0.2);
         // DrawRectangleV(vspos, dim, color);
     }
 }
@@ -741,7 +750,7 @@ void render_world_height_lines(World *w)
                     Vector2 start = vspos_of_ws(w, cd.pos);
                     Vector2 end = { start.x + cell_width, start.y};
                     float diff = fabsf((float) c_height - cd_height);
-                    DrawLineEx(start, end, diff * 2.f, RED);
+                    DrawLineEx(start, end, diff * 2.f, BLACK);
                 }
             }
 
@@ -754,7 +763,7 @@ void render_world_height_lines(World *w)
                     Vector2 start = vspos_of_ws(w, cr.pos);
                     Vector2 end = { start.x, start.y + cell_width};
                     float diff = fabsf((float) c_height - cr_height);
-                    DrawLineEx(start, end, diff * 2.f, RED);
+                    DrawLineEx(start, end, diff * 2.f, BLACK);
                 }
             }
 
@@ -779,7 +788,7 @@ void render_world(World *w, Texture2D atlas)
     render_world_height_lines(w);
     render_hud_rhs(go.pstate, w->wpos.x + w->wdim.x, atlas);
     render_hud_lhs(go.pstate, w->wpos.x + w->wdim.x, atlas);
-    DrawRectangleLinesEx((Rectangle) { w->wpos.x, w->wpos.y, w->wdim.x, w->wdim.y }, 2.f, RED);
+    // DrawRectangleLinesEx((Rectangle) { w->wpos.x, w->wpos.y, w->wdim.x, w->wdim.y }, 2.f, RED);
 }
 
 void fill_world(World *w, u16 *wbody)
