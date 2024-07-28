@@ -7,4 +7,5 @@ build
 assets/*
 !assets/atlas.sh
 !assets/atlas.h
+!assets/world_atlas.h
 .ccls-cache

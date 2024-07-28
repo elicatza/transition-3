@@ -4,6 +4,7 @@
 
 #include "core.h"
 #include "../assets/atlas.h"
+#include "../assets/world_atlas.h"
 #define CASE_IMPLEMENTATION
 #include "case.h"
 #define NO_TEMPLATE
@@ -80,8 +81,8 @@ enum VisualColor {
 #define G (PGROUND | H1)
 #define D0 (PDOOR | H2 | PMETA(0b00))
 #define D1 (PDOOR | H2 | PMETA(0b01)) /* Meta roomid */
-#define P1 (PPUZZLE1 | H1)
-#define P2 (PPUZZLE2 | H1)
+#define P1 (PPUZZLE1 | H1 | VPINK | VSTRENGTH(0b1111))
+#define P2 (PPUZZLE2 | H1 | VBLUE | VSTRENGTH(0b1111))
 #define Ld (PWINDOW | UNWALKABLE | PMETA(0b01) | VWHITE | VSTRENGTH(0b1111)) /* Meta off on */
 #define Lb (PWINDOW | UNWALKABLE | PMETA(0b01) | VPINK | VSTRENGTH(0b0011))  /* Meta off on */
 #define B (PBLINDS | H1)  /* 0 down 1 up */
@@ -106,10 +107,10 @@ static u16 worlds[2][103] = {
     {
         6, 9,
         0, 0, 0, 0, 0, 0,
+        0, G, G, G, P2,G,
         0, G, G, G, G, G,
         0, G, G, G, G, G,
-        0, G, G, G, G, G,
-        0, G, G, G, G, G,
+        0, P1,G, G, G, G,
         0, S, G, G, G, G,
         0, G, G, G, G, G,
         0, G, G, G, G, G,
@@ -157,6 +158,7 @@ typedef struct Sleep {
 
 typedef struct {
     Texture2D atlas;
+    Texture2D world_atlas;
     Puzzle *puzzle_fun;
     Puzzle *puzzle_train;
     size_t puzzle_fun_id;
@@ -196,7 +198,16 @@ int main(void)
         .mipmaps = 1,
     };
 
+    Image world_atlas = {
+        .data = WORLD_ATLAS_DATA,
+        .width = WORLD_ATLAS_WIDTH,
+        .height = WORLD_ATLAS_HEIGHT,
+        .format = WORLD_ATLAS_FORMAT,
+        .mipmaps = 1,
+    };
+
     go.atlas = LoadTextureFromImage(atlas_img);
+    go.world_atlas = LoadTextureFromImage(world_atlas);
     go.world = load_world(0, 4);
     go.state = WORLD;
     go.pstate.energy = 0.3f;
@@ -275,7 +286,7 @@ void loop(void)
         case PUZZLE_FUN_WIN: { render_puzzle_win(go.puzzle_fun, &go.pstate, go.atlas); } break;
         case PUZZLE_TRAIN_WIN: { render_puzzle_win(go.puzzle_train, &go.pstate, go.atlas); } break;
         case PUZZLE_TRAIN: { render_puzzle(go.puzzle_train, go.pstate, go.atlas); } break;
-        case WORLD: { render_world(go.world, go.atlas); } break;
+        case WORLD: { render_world(go.world, go.world_atlas); } break;
         case SLEEP: { render_sleep(go.world, go.sleep, go.pstate, go.atlas); } break;
         case FAINT: { render_sleep(go.world, go.sleep, go.pstate, go.atlas); } break;
         default: { ASSERT(0, "Not implemented"); } break;
@@ -399,13 +410,13 @@ void apply_lighting(World *w)
     for (row = 0; row < w->rows; ++row) {
         for (col = 0; col < w->cols; ++col) {
             U32x2 pos = { col, row };
-            enum PhysicalType type = get_type_at_pos(w, pos);
-            if (type != PWINDOW) continue;
+
+            u8 b = get_brightness_at_pos(w, pos);
+            if (b == 0) continue;
 
             u8 off = get_meta_at_pos(w, pos);
             if (off) continue;
 
-            u8 b = get_brightness_at_pos(w, pos);
             Color color = get_color_at_pos(w, pos);
             int nx, ny;
             for (nx = 0; nx < (int) w->cols; ++nx) {
@@ -660,24 +671,49 @@ void render_world_cells(World *w, Texture2D atlas)
         dim.x = w->cell_width;
         dim.y = w->cell_width;
 
+        Rectangle src = {
+            .x = 0,
+            .y = 0,
+            .width = 16.f,
+            .height = 16.f,
+        };
+
         Color color = PURPLE;
         switch ((enum PhysicalType) MASK_PHYSICAL_T(cell.info)) {
             case (PEMPTY): { color = BLACK; } break;
-            case (PGROUND): { color = BROWN; } break;
+            case (PGROUND): {
+                color = BROWN;
+                src.x = 0.f;
+                src.y = 0.f;
+            } break;
             case (PBLINDS): { color = RED; } break;
             case (PWINDOW): { color = WHITE; } break;
-            case (PBED): { color = BLUE; } break;
+            case (PBED): {
+                color = WHITE;
+                src.x = 16.f;
+                src.y = 0.f;
+            } break;
             case (PDOOR): { color = ORANGE; } break;
             case (PPUZZLE1): { color = YELLOW; } break;
             case (PPUZZLE2): { color = VIOLET; } break;
         }
+
+        Rectangle dest = {
+            .x = vspos.x,
+            .y = vspos.y,
+            .width = w->cell_width,
+            .height = w->cell_width,
+        };
+        DrawTexturePro(atlas, src, dest, (Vector2) { 0.f, 0.f}, 0.f, color); // Draw a part of a texture defined by a rectangle with 'pro' parameters
         // cell.lighting = 0.5 + (lightness / 30.f);
         // color = blend(color, C_BLUE, cell.lighting + 5);
         // color = apply_tint(color, cell.lighting);
         // color = lerp(color, (Color) { 0, 0, 0, 255 }, 0.5 + (cell.lighting / 30.f));
-        color = apply_shade(color, 0.4f);
-        color = blend(color, cell.color, 0.2);
-        DrawRectangleV(vspos, dim, color);
+
+
+        // color = apply_shade(color, 0.4f);
+        // color = blend(color, cell.color, 0.2);
+        // DrawRectangleV(vspos, dim, color);
     }
 }
 

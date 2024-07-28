@@ -4,8 +4,10 @@
 
 int main(void)
 {
-    Image heart = LoadImage("./assets/atlas.png");
-    assert(ExportImageAsCode(heart, "./assets/atlas.h"));
-    Image img;
+    Image puzzle_atlas = LoadImage("./assets/atlas.png");
+    assert(ExportImageAsCode(puzzle_atlas, "./assets/atlas.h"));
+
+    Image world_atlas = LoadImage("./assets/world_atlas.png");
+    assert(ExportImageAsCode(world_atlas, "./assets/world_atlas.h"));
     return 0;
 }
