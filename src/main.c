@@ -183,6 +183,7 @@ typedef struct {
     GameState state;
     PlayerState pstate;
     Sleep sleep;
+    bool blinds_down;
 } GO;
 
 GO go = { 0 };
@@ -238,6 +239,7 @@ int main(void)
     go.puzzle_fun = load_puzzle(puzzle_fun_array[go.puzzle_fun_id]);
     go.puzzle_train = load_puzzle(puzzle_train_array[go.puzzle_train_id]);
     go.puzzle_boss = load_puzzle(puzzle_boss);
+    go.blinds_down = true;
 
 #if defined(PLATFORM_WEB)
     emscripten_set_main_loop(loop, 0, 1);
@@ -433,8 +435,7 @@ void apply_lighting(World *w)
             u8 b = get_brightness_at_pos(w, pos);
             if (b == 0) continue;
 
-            u8 off = get_meta_at_pos(w, pos);
-            if (off) continue;
+            if (go.blinds_down && get_type_at_pos(w, pos) == PWINDOW) continue;
 
             Color color = get_color_at_pos(w, pos);
             int nx, ny;
@@ -446,26 +447,6 @@ void apply_lighting(World *w)
                     size_t i = ny * w->cols + nx;
                     w->cell_case[i].color = blend(w->cell_case[i].color, color, val * b);
                 }
-            }
-        }
-    }
-}
-
-void toggle_blinds(World *w, U32x2 pos) {
-    // Loop over windows in 3x3 area. Disable them.
-    // Factor out to toggle blinds function
-    int x, y;
-    for (x = -1; x <= 1; ++x) {
-        for (y = -1; y <= 1; ++y) {
-            if (x == 0 && y == 0) continue;
-            int newx = pos.x + x;
-            int newy = pos.y + y;
-            if (newx < 0 || newx >= (int) w->cols) continue;
-            if (newy < 0 || newy >= (int) w->rows) continue;
-            Cell *xycell = &w->cell_case[newy * w->cols + newx];
-            if ((enum PhysicalType) MASK_PHYSICAL_T(xycell->info) == PWINDOW) {
-                INFO("Found valid lightsource %d", MASK_PHYSICAL_T(xycell->info));
-                xycell->info ^= 0b01000000;
             }
         }
     }
@@ -640,7 +621,7 @@ GameState update_world(World *w, PlayerState *pstate)
             case PEMPTY: break;
             case PWINDOW: break;
             case PTABLE: break;
-            case PBLINDS: { toggle_blinds(w, cell.pos); } break;
+            case PBLINDS: { go.blinds_down = !go.blinds_down; } break;
             case PDOOR: {
                 int meta = MASK_META(cell.info) >> 6;
                 INFO("Door %d", meta);
@@ -718,7 +699,10 @@ void render_world_cells(World *w, Texture2D atlas)
             case (PEMPTY): { continue; } break;
             case (PGROUND): { src.x = 0.f; src.y = 0.f; } break;
             case (PBLINDS): { src.x = 6.f * 16.f; src.y = 0.f; } break;
-            case (PWINDOW): { src.x = 48.f; src.y = 0.f; } break;
+            case (PWINDOW): {
+                if (go.blinds_down) continue;
+                src.x = 48.f; src.y = 0.f;
+            } break;
             case (PBED): { src.x = 16.f; src.y = 0.f; } break;
             case (PBED_END): { src.x = 32.f; src.y = 0.f; } break;
             case (PDOOR): { src.x = 4.f * 16.f, src.y = 0.f; } break;
