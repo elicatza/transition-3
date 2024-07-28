@@ -34,6 +34,8 @@ typedef enum {
     PUZZLE_FUN_WIN,
     PUZZLE_TRAIN,
     PUZZLE_TRAIN_WIN,
+    PUZZLE_BOSS,
+    PUZZLE_BOSS_WIN,
     WORLD,
     MENU,
     SLEEP,

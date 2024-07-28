@@ -28,6 +28,7 @@ GameState update_puzzle_win(Puzzle *p, GameState default_rv);
 
 extern unsigned char puzzle_fun_array[2][103];
 extern unsigned char puzzle_train_array[2][103];
+extern unsigned char puzzle_boss[20 * 20 + 3];
 
 
 #endif

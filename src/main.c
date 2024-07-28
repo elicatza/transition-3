@@ -168,6 +168,7 @@ typedef struct {
     Texture2D world_atlas;
     Puzzle *puzzle_fun;
     Puzzle *puzzle_train;
+    Puzzle *puzzle_boss;
     size_t puzzle_fun_id;
     size_t puzzle_train_id;
     World *world;
@@ -228,6 +229,7 @@ int main(void)
     go.puzzle_train_id = 0;
     go.puzzle_fun = load_puzzle(puzzle_fun_array[go.puzzle_fun_id]);
     go.puzzle_train = load_puzzle(puzzle_train_array[go.puzzle_train_id]);
+    go.puzzle_boss = load_puzzle(puzzle_boss);
 
 #if defined(PLATFORM_WEB)
     emscripten_set_main_loop(loop, 0, 1);
@@ -279,10 +281,11 @@ void loop(void)
                 go.puzzle_train = p;
             }
         } break;
+        case PUZZLE_BOSS: { go.state = update_puzzle(go.puzzle_boss, &go.pstate, PUZZLE_BOSS); } break;
+        case PUZZLE_BOSS_WIN: { go.state = update_puzzle_win(go.puzzle_boss, PUZZLE_BOSS_WIN); } break;
         case WORLD: { go.state = update_world(go.world, &go.pstate); } break;
         case SLEEP: { go.state = update_sleep(&go.world, &go.sleep, &go.pstate, SLEEP); } break;
         case FAINT: { go.state = update_sleep(&go.world, &go.sleep, &go.pstate, FAINT); } break;
-        default: { ASSERT(0, "Not implemented") } break;
     }
 
     BeginDrawing();
@@ -293,10 +296,11 @@ void loop(void)
         case PUZZLE_FUN_WIN: { render_puzzle_win(go.puzzle_fun, &go.pstate, go.atlas); } break;
         case PUZZLE_TRAIN_WIN: { render_puzzle_win(go.puzzle_train, &go.pstate, go.atlas); } break;
         case PUZZLE_TRAIN: { render_puzzle(go.puzzle_train, go.pstate, go.atlas); } break;
+        case PUZZLE_BOSS_WIN: { render_puzzle_win(go.puzzle_boss, &go.pstate, go.atlas); } break;
+        case PUZZLE_BOSS: { render_puzzle(go.puzzle_boss, go.pstate, go.atlas); } break;
         case WORLD: { render_world(go.world, go.world_atlas); } break;
         case SLEEP: { render_sleep(go.world, go.sleep, go.pstate, go.world_atlas); } break;
         case FAINT: { render_sleep(go.world, go.sleep, go.pstate, go.atlas); } break;
-        default: { ASSERT(0, "Not implemented"); } break;
     }
 
     EndDrawing();
@@ -622,9 +626,6 @@ GameState update_world(World *w, PlayerState *pstate)
         switch ((enum PhysicalType) MASK_PHYSICAL_T(cell.info)) {
             case PGROUND: break;
             case PEMPTY: break;
-            case PBOSS: {
-                ASSERT(0, "Not implemented");
-            } break;
             case PWINDOW: break;
             case PTABLE: break;
             case PBLINDS: { toggle_blinds(w, cell.pos); } break;
@@ -638,12 +639,14 @@ GameState update_world(World *w, PlayerState *pstate)
                 return WORLD;
             } break;
             case PPUZZLE1: {
-                INFO("Puzzle 1");
                 return PUZZLE_FUN;
             } break;
             case PPUZZLE2: {
-                go.sleep = init_sleep(*pstate);
+                // go.sleep = init_sleep(*pstate);
                 return PUZZLE_TRAIN;
+            } break;
+            case PBOSS: {
+                return PUZZLE_BOSS;
             } break;
             case PBED: {
                 go.sleep = init_sleep(*pstate);
