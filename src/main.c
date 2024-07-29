@@ -1,5 +1,6 @@
 #include <raylib.h>
 #include <stdio.h>
+#define __USE_MISC
 #include <math.h>
 
 #include "core.h"
@@ -177,8 +178,9 @@ typedef struct Sleep {
     float init_energy;
     float end_energy;
     float init_time;
-    float step_time;
     float end_time;
+    float init_pain;
+    float end_pain;
 } Sleep;
 
 typedef struct {
@@ -538,25 +540,36 @@ void apply_lighting(World *w, PlayerState pstate)
 
 Sleep init_sleep(PlayerState pstate)
 {
+    if (pstate.energy < 0.f) pstate.energy = 0.0f;
+    if (pstate.energy >= pstate.energy_max) pstate.energy = pstate.energy_max - 0.001;
+    float stime = (15.f / (1 + powf(M_E, -2 * (1.f - (pstate.energy / pstate.energy_max)))) - 5.f) / 24.f;
+    float stime_max = (15.f / (1 + powf(M_E, -2)) - 5.f) / 24.f;
+    INFO("Hours: %.2f", stime * 24.f);
+    INFO("Percent: %.2f", (stime / stime_max) * 100.f);
+
     Sleep rv;
-    float sleep_time = (3.f / 8.f) * (1.f - (pstate.energy / pstate.energy_max));
     rv.init_time = pstate.time;
-    rv.step_time = 0.05f / ((3.f / 8.f) / sleep_time);
-    rv.end_time = pstate.time + sleep_time;
+    rv.end_time = pstate.time + stime;
     rv.init_energy = pstate.energy;
-    rv.end_energy = ((3.f / 8.f) / sleep_time) * 0.8f * pstate.energy_max; /* TODO Factor in lightness (0.8f) */
+    rv.end_energy = MIN(pstate.energy * 0.3 + pstate.energy_max * (stime / stime_max) * 0.8f, pstate.energy_max); /* TODO Factor in lightness (0.8f) */
+    rv.init_pain = pstate.pain;
+    rv.end_pain = pstate.pain * 0.333f;
     return rv;
 }
 
 Sleep init_faint(PlayerState pstate)
 {
+    if (pstate.energy < 0.f) pstate.energy = 0.0f;
+    if (pstate.energy >= pstate.energy_max) pstate.energy = pstate.energy_max - 0.001;
+    float stime = (15.f / (1 + powf(M_E, -2 * (1.f - (pstate.energy / pstate.energy_max)))) - 5.f) / 24.f;
+    float stime_max = (15.f / (1 + powf(M_E, -2)) - 6.f) / 24.f;
     Sleep rv;
-    float sleep_time = (3.f / 8.f) * (1.f - (pstate.energy / pstate.energy_max));
     rv.init_time = pstate.time;
-    rv.step_time = 0.05f / ((3.f / 8.f) / sleep_time);
-    rv.end_time = pstate.time + sleep_time;
+    rv.end_time = pstate.time + stime;
     rv.init_energy = pstate.energy;
-    rv.end_energy = ((3.f / 8.f) / sleep_time) * 0.5f * pstate.energy_max; /* TODO Factor in lightness (0.8f) */
+    rv.end_energy = MIN(pstate.energy_max * (stime / stime_max) * 0.5f, pstate.energy_max); /* TODO Factor in lightness (0.8f) */
+    rv.init_pain = pstate.pain;
+    rv.end_pain = pstate.pain * 0.666f;
     return rv;
 }
 
@@ -606,13 +619,17 @@ GameState update_sleep(World **w, Sleep *s, PlayerState *pstate, GameState gs)
     }
 
     update_world(*w, pstate);
-    pstate->time += s->step_time * GetFrameTime();
+    pstate->time += SLEEP_SPEED * GetFrameTime();
     if (pstate->time >= s->end_time) {
         pstate->energy = s->end_energy;
         pstate->did_faint = false;
         // pstate->time = cur_time;
         return WORLD;
     }
+
+    // Good math (first try)
+    pstate->pain = s->init_pain + (s->end_pain - s->init_pain) * ((pstate->time - s->init_time)  / (s->end_time - s->init_time));
+    pstate->energy = s->init_energy + (s->end_energy - s->init_energy) * ((pstate->time - s->init_time)  / (s->end_time - s->init_time));
     return SLEEP;
 }
 
@@ -719,12 +736,8 @@ GameState update_world(World *w, PlayerState *pstate)
             if (penalty) {
                 pstate->face_id = new_face_id;
                 INFO("Starting animation");
-                player_start_animation(pstate, C_BLUE);
-                pstate->energy -= PENALTY_ENERGY;
-                if (pstate->energy < 0) {
-                    pstate->energy = 0.f;
-                    return FAINT;
-                }
+                apply_energy_loss(pstate);
+                if (should_faint(*pstate)) return FAINT;
             }
             w->player = new_p;
             w->player.height = get_height_at_pos(w, new_p.pos);
@@ -757,7 +770,6 @@ GameState update_world(World *w, PlayerState *pstate)
                 return PUZZLE_FUN;
             } break;
             case PPUZZLE2: {
-                // go.sleep = init_sleep(*pstate);
                 return PUZZLE_TRAIN;
             } break;
             case PBOSS: {

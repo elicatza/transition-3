@@ -170,3 +170,27 @@ void update_pstate(PlayerState *pstate)
     }
 }
 
+void apply_pain(PlayerState *pstate)
+{
+    player_start_animation(pstate, C_PINK);
+    pstate->pain += PENALTY_PAIN;
+}
+
+void apply_energy_loss(PlayerState *pstate)
+{
+    player_start_animation(pstate, C_BLUE);
+    pstate->energy -= PENALTY_ENERGY;
+}
+
+bool should_faint(PlayerState pstate)
+{
+    if (pstate.energy < 0) {
+        pstate.energy = 0.f;
+        return true;
+    }
+    if (pstate.pain > pstate.pain_max) {
+        pstate.pain_max = pstate.pain_max;
+        return true;
+    }
+    return false;
+}

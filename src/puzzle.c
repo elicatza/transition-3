@@ -314,7 +314,7 @@ int get_mirror_direction(Puzzle *p)
 /**
  * @param options. Check MIRROR_ namespace for options.
  */
-void mirror_over_line(Puzzle *p, int button_id, int options, PlayerState *pstate)
+int mirror_over_line(Puzzle *p, int button_id, int options, PlayerState *pstate)
 {
     ASSERT(options != 0, "Invalid options");
     Button ws_btn = p->button_case[button_id];
@@ -368,9 +368,10 @@ void mirror_over_line(Puzzle *p, int button_id, int options, PlayerState *pstate
         }
     }
     if (found_valid) {
-        player_start_animation(pstate, C_PINK);
-        pstate->pain += PENALTY_PAIN;
+        apply_pain(pstate);
+        if (should_faint(*pstate)) return FAINT;
     }
+    return -1;
 }
 
 bool is_player_at(Puzzle *p, int x, int y)
@@ -463,8 +464,8 @@ GameState update_puzzle(Puzzle *p, PlayerState *pstate, GameState default_rv)
             }
         }
         if (found_valid) {
-            pstate->energy -= PENALTY_ENERGY;
-            player_start_animation(pstate, BLUE);
+            apply_energy_loss(pstate);
+            if (should_faint(*pstate)) return FAINT;
         }
     }
 
@@ -487,7 +488,8 @@ GameState update_puzzle(Puzzle *p, PlayerState *pstate, GameState default_rv)
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             // Write changes
             if (CheckCollisionPointRec(GetMousePosition(), p->rec)) {
-                mirror_over_line(p, p->clicked_button, options, pstate);
+                int rv = mirror_over_line(p, p->clicked_button, options, pstate);
+                if (rv != -1) return rv;
             }
             p->clicked_button = -1;
         } else {
@@ -656,7 +658,7 @@ void render_puzzle(Puzzle *p, PlayerState pstate, Texture2D atlas, Texture2D pla
     Vector2 center_val = { .x = (p->rec.width / 2.f) + p->rec.x, .y = (p->rec.height / 2.f) + p->rec.y };
     int radius_loc = GetShaderLocation(fs, "radius");
 
-    float rad = (pstate.light + pstate.light_tmp) * 7.f + 4.f; // Shift range to [4, 11]
+    float rad = (pstate.light + pstate.light_tmp) * 9.f + 2.f; // Shift range from [0, 1] to [2, 11]
     float radius_val = (p->rec.width / p->cols) * rad * M_SQRT2;
 
     SetShaderValue(fs, center_loc, &center_val, SHADER_UNIFORM_VEC2);
@@ -679,6 +681,7 @@ void render_puzzle(Puzzle *p, PlayerState pstate, Texture2D atlas, Texture2D pla
     for (i = 0; i < case_len(p->cell_case); ++i) {
         render_cell(p, p->cell_case[i], atlas);
     }
+    // EndShaderMode();
 
     // Draws players
     for (i = 0; i < case_len(p->player_case); ++i) {

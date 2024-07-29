@@ -28,6 +28,7 @@ typedef uint8_t u8;
 
 #define PENALTY_PAIN 0.05f
 #define PENALTY_ENERGY 0.025f
+#define SLEEP_SPEED 0.04f
 
 typedef enum {
     PUZZLE_FUN,
@@ -67,6 +68,10 @@ void format_time(PlayerState pstate, char *dest, size_t sz);
 void render_player(Vector2 vs_pos, Vector2 dim, PlayerState pstate, Texture2D player_atlas, Color color);
 void player_start_animation(PlayerState *pstate, Color color);
 void update_pstate(PlayerState *pstate);
+void apply_energy_loss(PlayerState *pstate);
+void apply_pain(PlayerState *pstate);
+bool should_faint(PlayerState pstate);
+
 #ifdef TEST
 #define TEST_ASSERT(statement) test_assert(statement, #statement)
 
