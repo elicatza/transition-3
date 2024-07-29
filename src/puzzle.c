@@ -443,6 +443,7 @@ GameState update_puzzle(Puzzle *p, PlayerState *pstate, GameState default_rv)
             if (is_valid_pos(p, new_player)) {
                 if (penatlty) {
                     pstate->energy -= PENALTY_ENERGY;
+                    player_start_animation(pstate, BLUE);
                     if (pstate->energy < 0) {
                         pstate->energy = 0.f;
                         return FAINT;
@@ -497,6 +498,7 @@ GameState update_puzzle(Puzzle *p, PlayerState *pstate, GameState default_rv)
             }
         }
     }
+    update_pstate(pstate);
     return default_rv;
 }
 
@@ -504,7 +506,7 @@ void render_button(Puzzle *p, Button *btn, Texture2D atlas)
 {
     Button vs_btn = vs_button_of_ws(p, *btn);
     Rectangle src = {
-        .x = 8.f * TEXTURE_BUTTON_OFFX + 0.1f, .y = 8.f * TEXTURE_BUTTON_OFFY + 0.1f,
+        .x = 8.f * TEXTURE_BUTTON_OFFX + 0.1f, .y = 0.1f,
         .width = 7.8f, .height = 7.8f,
     };
     Rectangle dest = {
@@ -558,23 +560,23 @@ void render_height_lines(Puzzle *p)
 /**
  * Should be lighter based on hight / darker based on depth
  */
-void render_player(Puzzle *p, Player player)
-{
-    float cell_width = p->rec.height / p->cols;
-    Player vs_pos = vs_player_of_ws(p, player);
-    Rectangle dims = {
-        .x = vs_pos.pos.x,
-        .y = vs_pos.pos.y,
-        .width = cell_width,
-        .height = cell_width,
-    };
-    Color color;
-    switch (player.state) {
-        case PHYSICAL: { color = PINK; } break;
-        case PREVIEW: { color = GRAY; } break;
-    }
-    DrawRectangleRec(dims, color);
-}
+// void render_player(Puzzle *p, Player player)
+// {
+//     float cell_width = p->rec.height / p->cols;
+//     Player vs_pos = vs_player_of_ws(p, player);
+//     Rectangle dims = {
+//         .x = vs_pos.pos.x,
+//         .y = vs_pos.pos.y,
+//         .width = cell_width,
+//         .height = cell_width,
+//     };
+//     Color color;
+//     switch (player.state) {
+//         case PHYSICAL: { color = PINK; } break;
+//         case PREVIEW: { color = GRAY; } break;
+//     }
+//     DrawRectangleRec(dims, color);
+// }
 
 void render_selection(Puzzle *p, Button sel_ws)
 {
@@ -655,7 +657,7 @@ void render_puzzle_grid(Puzzle *p)
     }
 }
 
-void render_puzzle(Puzzle *p, PlayerState pstate, Texture2D atlas)
+void render_puzzle(Puzzle *p, PlayerState pstate, Texture2D atlas, Texture2D player_atlas)
 {
     int height = GetScreenHeight() - p->padding;
     int width = GetScreenWidth() - p->padding;
@@ -676,7 +678,11 @@ void render_puzzle(Puzzle *p, PlayerState pstate, Texture2D atlas)
 
     // Draws players
     for (i = 0; i < case_len(p->player_case); ++i) {
-        render_player(p, p->player_case[i]);
+        render_player(
+            vs_pos_of_ws(p, p->player_case[i].pos), 
+            (Vector2) { p->rec.height / p->cols, p->rec.height / p->cols },
+            pstate,
+            player_atlas);
     }
     for (i = 0; i < case_len(p->player_case); ++i) {
         if (p->player_case[i].state == PREVIEW) {
@@ -709,9 +715,9 @@ void render_puzzle(Puzzle *p, PlayerState pstate, Texture2D atlas)
     render_hud_lhs(pstate, p->rec.x + p->rec.width, atlas);
 }
 
-void render_puzzle_win(Puzzle *p, PlayerState *pstate, Texture2D atlas)
+void render_puzzle_win(Puzzle *p, PlayerState *pstate, Texture2D atlas, Texture2D player_atlas)
 {
-    render_puzzle(p, *pstate, atlas);
+    render_puzzle(p, *pstate, atlas, player_atlas);
 
     Color bg = BLACK;
     bg.a = 128;

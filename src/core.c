@@ -3,6 +3,20 @@
 #include <stdio.h>
 #include <string.h>
 
+/**
+ * @param intencity value from [0, inf>
+ */
+Color blend(Color main, Color blend, float intencity)
+{
+    return (Color) {
+        .r = (main.r + intencity * blend.r) / (1.f + intencity),
+        .g = (main.g + intencity * blend.g) / (1.f + intencity),
+        .b = (main.b + intencity * blend.b) / (1.f + intencity),
+        .a = (main.a + intencity * blend.a) / (1.f + intencity),
+    };
+}
+
+
 void render_hud_rhs(PlayerState pstate, float offx, Texture2D atlas)
 {
     (void) atlas;
@@ -104,3 +118,53 @@ void render_hud_lhs(PlayerState pstate, float offx, Texture2D atlas)
     // INFO("%s", day + len + 1);
     DrawText(day, x + padx, ysec * 0.5f, 19.f, WHITE);
 }
+
+void render_player(Vector2 vs_pos, Vector2 dim, PlayerState pstate, Texture2D player_atlas)
+{
+
+    Rectangle dest = {
+        .x = vs_pos.x,
+        .y = vs_pos.y,
+        .width = dim.x,
+        .height = dim.y,
+    };
+    Rectangle src = {
+        .x = 0.f,
+        .y = 0.f,
+        .width = 16.f,
+        .height = 16.f,
+    };
+    if (pstate.face_id == 1 || pstate.face_id == 3) {
+        src.x = 0.f;
+        src.y = 0.f;
+    }
+    else if (pstate.face_id == 2 || pstate.face_id == 4) {
+        src.x = 16.f;
+        src.y = 0.f;
+    }
+    else if (pstate.face_id == 0 || pstate.face_id == 5) {
+        src.x = 2.f * 16.f;
+        src.y = 0.f;
+    }
+
+    Color color = blend(GRAY, pstate.ani_color, 3.f * pstate.ani_time_remaining / pstate.ani_time_max);
+    DrawRectangleV(vs_pos, dim, color);
+
+    DrawTexturePro(player_atlas, src, dest, (Vector2) { 0.f, 0.f }, 0, WHITE);
+}
+
+void player_start_animation(PlayerState *pstate, Color color)
+{
+    pstate->ani_color = color;
+    pstate->ani_time_max = 0.5f;
+    pstate->ani_time_remaining = 0.5f;
+}
+
+void update_pstate(PlayerState *pstate)
+{
+    pstate->ani_time_remaining -= GetFrameTime();
+    if (pstate->ani_time_remaining < 0.f) {
+        pstate->ani_time_remaining = 0.f;
+    }
+}
+

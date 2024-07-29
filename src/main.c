@@ -314,12 +314,12 @@ void loop(void)
 
     ClearBackground(BLACK);
     switch (go.state) {
-        case PUZZLE_FUN: { render_puzzle(go.puzzle_fun, go.pstate, go.atlas); } break;
-        case PUZZLE_FUN_WIN: { render_puzzle_win(go.puzzle_fun, &go.pstate, go.atlas); } break;
-        case PUZZLE_TRAIN_WIN: { render_puzzle_win(go.puzzle_train, &go.pstate, go.atlas); } break;
-        case PUZZLE_TRAIN: { render_puzzle(go.puzzle_train, go.pstate, go.atlas); } break;
-        case PUZZLE_BOSS_WIN: { render_puzzle_win(go.puzzle_boss, &go.pstate, go.atlas); } break;
-        case PUZZLE_BOSS: { render_puzzle(go.puzzle_boss, go.pstate, go.atlas); } break;
+        case PUZZLE_FUN: { render_puzzle(go.puzzle_fun, go.pstate, go.atlas, go.atlas); } break;
+        case PUZZLE_FUN_WIN: { render_puzzle_win(go.puzzle_fun, &go.pstate, go.atlas, go.player_atlas); } break;
+        case PUZZLE_TRAIN_WIN: { render_puzzle_win(go.puzzle_train, &go.pstate, go.atlas, go.player_atlas); } break;
+        case PUZZLE_TRAIN: { render_puzzle(go.puzzle_train, go.pstate, go.atlas, go.player_atlas); } break;
+        case PUZZLE_BOSS_WIN: { render_puzzle_win(go.puzzle_boss, &go.pstate, go.atlas, go.player_atlas); } break;
+        case PUZZLE_BOSS: { render_puzzle(go.puzzle_boss, go.pstate, go.atlas, go.player_atlas); } break;
         case WORLD: { render_world(go.world, go.pstate, go.world_atlas, go.player_atlas); } break;
         case SLEEP: { render_sleep(go.world, go.sleep, go.pstate, go.world_atlas, go.player_atlas); } break;
         case FAINT: { render_sleep(go.world, go.sleep, go.pstate, go.atlas, go.player_atlas); } break;
@@ -400,19 +400,6 @@ bool is_valid_wspos(World *w, U32x2 pos, u32 height)
     }
 
     return true;
-}
-
-/**
- * @param intencity value from [0, inf>
- */
-Color blend(Color main, Color blend, float intencity)
-{
-    return (Color) {
-        .r = (main.r + intencity * blend.r) / (1.f + intencity),
-        .g = (main.g + intencity * blend.g) / (1.f + intencity),
-        .b = (main.b + intencity * blend.b) / (1.f + intencity),
-        .a = (main.a + intencity * blend.a) / (1.f + intencity),
-    };
 }
 
 Color apply_shade(Color c, float factor)
@@ -584,21 +571,6 @@ void render_sleep(World *w, Sleep s, PlayerState pstate, Texture2D atlas, Textur
         .y = w->wpos.y + 0.3f * (w->wdim.y - isz.y) + sz.y + tsz.y,
     };
     DrawTextEx(GetFontDefault(), instructions, ipos, w->wdim.y / 20.f, 4.f, WHITE);
-}
-
-void update_pstate(PlayerState *pstate)
-{
-    pstate->ani_time_remaining -= GetFrameTime();
-    if (pstate->ani_time_remaining < 0.f) {
-        pstate->ani_time_remaining = 0.f;
-    }
-}
-
-void player_start_animation(PlayerState *pstate, Color color)
-{
-    pstate->ani_color = color;
-    pstate->ani_time_max = 0.5f;
-    pstate->ani_time_remaining = 0.5f;
 }
 
 GameState update_world(World *w, PlayerState *pstate)
@@ -793,41 +765,6 @@ void render_world_cells(World *w, Texture2D atlas)
     }
 }
 
-void render_world_player(World *w, PlayerState pstate, Texture2D player_atlas)
-{
-    Vector2 vs_pos = vspos_of_ws(w, w->player.pos);
-
-    Rectangle dest = {
-        .x = vs_pos.x,
-        .y = vs_pos.y,
-        .width = w->cell_width,
-        .height = w->cell_width,
-    };
-    Rectangle src = {
-        .x = 0.f,
-        .y = 0.f,
-        .width = 16.f,
-        .height = 16.f,
-    };
-    if (pstate.face_id == 1 || pstate.face_id == 3) {
-        src.x = 0.f;
-        src.y = 0.f;
-    }
-    else if (pstate.face_id == 2 || pstate.face_id == 4) {
-        src.x = 16.f;
-        src.y = 0.f;
-    }
-    else if (pstate.face_id == 0 || pstate.face_id == 5) {
-        src.x = 2.f * 16.f;
-        src.y = 0.f;
-    }
-
-    Color color = blend(GRAY, pstate.ani_color, 3.f * pstate.ani_time_remaining / pstate.ani_time_max);
-    DrawRectangleV(vs_pos, (Vector2) { w->cell_width, w->cell_width }, color);
-
-    DrawTexturePro(player_atlas, src, dest, (Vector2) { 0.f, 0.f }, 0, WHITE);
-}
-
 void render_world_height_lines(World *w)
 {
     size_t row, col;
@@ -880,7 +817,7 @@ void render_world(World *w, PlayerState pstate, Texture2D atlas, Texture2D playe
     w->wdim.y = w->cell_width * w->rows;
 
     render_world_cells(w, atlas);
-    render_world_player(w, pstate, player_atlas);
+    render_player(vspos_of_ws(w, w->player.pos), (Vector2) { w->cell_width, w->cell_width }, pstate, player_atlas);
     // render_world_height_lines(w);
     render_hud_rhs(go.pstate, w->wpos.x + w->wdim.x, atlas);
     render_hud_lhs(go.pstate, w->wpos.x + w->wdim.x, atlas);

@@ -37,7 +37,7 @@ typedef enum {
     PUZZLE_BOSS,
     PUZZLE_BOSS_WIN,
     WORLD,
-    MENU,
+    // MENU, TODO
     SLEEP,
     FAINT,
 } GameState;
@@ -58,9 +58,13 @@ typedef struct {
     float ani_time_remaining;
 } PlayerState;
 
+Color blend(Color main, Color blend, float intencity);
 void render_hud_rhs(PlayerState pstate, float offx, Texture2D atlas);
 void render_hud_lhs(PlayerState pstate, float offx, Texture2D atlas);
 void format_time(PlayerState pstate, char *dest, size_t sz);
+void render_player(Vector2 vs_pos, Vector2 dim, PlayerState pstate, Texture2D player_atlas);
+void player_start_animation(PlayerState *pstate, Color color);
+void update_pstate(PlayerState *pstate);
 #ifdef TEST
 #define TEST_ASSERT(statement) test_assert(statement, #statement)
 
