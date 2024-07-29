@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#define __USE_MISC
 #include <math.h>
 
 #include "case.h"
@@ -511,6 +512,7 @@ GameState update_puzzle(Puzzle *p, PlayerState *pstate, GameState default_rv)
         }
     }
     update_pstate(pstate);
+
     return default_rv;
 }
 
@@ -568,27 +570,6 @@ void render_height_lines(Puzzle *p)
         }
     }
 }
-
-/**
- * Should be lighter based on hight / darker based on depth
- */
-// void render_player(Puzzle *p, Player player)
-// {
-//     float cell_width = p->rec.height / p->cols;
-//     Player vs_pos = vs_player_of_ws(p, player);
-//     Rectangle dims = {
-//         .x = vs_pos.pos.x,
-//         .y = vs_pos.pos.y,
-//         .width = cell_width,
-//         .height = cell_width,
-//     };
-//     Color color;
-//     switch (player.state) {
-//         case PHYSICAL: { color = PINK; } break;
-//         case PREVIEW: { color = GRAY; } break;
-//     }
-//     DrawRectangleRec(dims, color);
-// }
 
 void render_selection(Puzzle *p, Button sel_ws)
 {
@@ -669,8 +650,18 @@ void render_puzzle_grid(Puzzle *p)
     }
 }
 
-void render_puzzle(Puzzle *p, PlayerState pstate, Texture2D atlas, Texture2D player_atlas)
+void render_puzzle(Puzzle *p, PlayerState pstate, Texture2D atlas, Texture2D player_atlas, Shader fs)
 {
+    int center_loc = GetShaderLocation(fs, "center");
+    Vector2 center_val = { .x = (p->rec.width / 2.f) + p->rec.x, .y = (p->rec.height / 2.f) + p->rec.y };
+    int radius_loc = GetShaderLocation(fs, "radius");
+
+    float rad = (pstate.light + pstate.light_tmp) * 7.f + 4.f; // Shift range to [4, 11]
+    float radius_val = (p->rec.width / p->cols) * rad * M_SQRT2;
+
+    SetShaderValue(fs, center_loc, &center_val, SHADER_UNIFORM_VEC2);
+    SetShaderValue(fs, radius_loc, &radius_val, SHADER_UNIFORM_FLOAT);
+
     int height = GetScreenHeight() - p->padding;
     int width = GetScreenWidth() - p->padding;
     ASSERT(width >= height);
@@ -682,6 +673,7 @@ void render_puzzle(Puzzle *p, PlayerState pstate, Texture2D atlas, Texture2D pla
     p->rec.height = cell_width * p->rows;
 
 
+    BeginShaderMode(fs);
     // Draw cells
     size_t i;
     for (i = 0; i < case_len(p->cell_case); ++i) {
@@ -717,6 +709,7 @@ void render_puzzle(Puzzle *p, PlayerState pstate, Texture2D atlas, Texture2D pla
         DrawRectangleLinesEx(p->rec, 3.f, GREEN);
     }
 
+    EndShaderMode();
     if (p->clicked_button != -1) {
         Button sel_ws = p->button_case[p->clicked_button];
         if (CheckCollisionPointRec(GetMousePosition(), p->rec)) {
@@ -728,13 +721,14 @@ void render_puzzle(Puzzle *p, PlayerState pstate, Texture2D atlas, Texture2D pla
             render_button(p, &p->button_case[i], atlas);
         }
     }
+
     render_hud_rhs(pstate, p->rec.x + p->rec.width, atlas);
     render_hud_lhs(pstate, p->rec.x + p->rec.width, atlas);
 }
 
-void render_puzzle_win(Puzzle *p, PlayerState *pstate, Texture2D atlas, Texture2D player_atlas)
+void render_puzzle_win(Puzzle *p, PlayerState *pstate, Texture2D atlas, Texture2D player_atlas, Shader fs)
 {
-    render_puzzle(p, *pstate, atlas, player_atlas);
+    render_puzzle(p, *pstate, atlas, player_atlas, fs);
 
     Color bg = BLACK;
     bg.a = 128;

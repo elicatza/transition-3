@@ -15,6 +15,12 @@
     #include <emscripten/emscripten.h>
 #endif
 
+#if defined(PLATFORM_DESKTOP)
+    #define GLSL_VERSION            100
+#else   // PLATFORM_ANDROID, PLATFORM_WEB
+    #define GLSL_VERSION            100
+#endif
+
 
 #define ASPECT_RATIO (4.f / 3.f)
 #define WIDTH 800
@@ -189,9 +195,68 @@ typedef struct {
     PlayerState pstate;
     Sleep sleep;
     bool blinds_down;
+    Shader puzzle_shader;
 } GO;
 
 GO go = { 0 };
+
+static char *vs =
+	"#version 100\n"
+	"\n"
+	"// Input vertex attributes\n"
+	"attribute vec3 vertexPosition;\n"
+	"attribute vec2 vertexTexCoord;\n"
+	"attribute vec3 vertexNormal;\n"
+	"attribute vec4 vertexColor;\n"
+	"\n"
+	"// Input uniform values\n"
+	"uniform mat4 mvp;\n"
+	"\n"
+	"// Output vertex attributes (to fragment shader)\n"
+	"varying vec2 fragTexCoord;\n"
+	"varying vec4 fragColor;\n"
+	"\n"
+	"void main()\n"
+	"{\n"
+	"    // Send vertex attributes to fragment shader\n"
+	"    fragTexCoord = vertexTexCoord;\n"
+	"    fragColor = vertexColor;\n"
+	"\n"
+	"    // Calculate final vertex position\n"
+	"    gl_Position = mvp*vec4(vertexPosition, 1.0);\n"
+	"}\n"
+	"\n";
+
+static char *fs =
+	"#version 100\n"
+	"\n"
+	"\n"
+	"precision mediump float;\n"
+	"\n"
+	"varying vec2 fragTexCoord;\n"
+	"varying vec4 fragColor;\n"
+	"\n"
+	"\n"
+    "uniform sampler2D texture0;\n"
+    "uniform vec4 colDiffuse;\n"
+	"uniform vec2 center;\n"
+	"uniform float radius;\n"
+	"\n"
+	"void main()\n"
+	"{\n"
+    "    vec4 texelColor = texture2D(texture0, fragTexCoord);\n"
+    "    float lhs = pow(center.x - gl_FragCoord.x, 2.0) + pow(center.y - gl_FragCoord.y, 2.0);\n"
+    "    float rhs = pow(radius, 2.0);\n"
+	"    if (lhs < rhs)\n"
+	"    {\n"
+	"        gl_FragColor = mix(texelColor, vec4(0.0, 0.0, 0.0, 1.0), lhs / rhs);\n"
+	"    }\n"
+	"    else\n"
+	"    {\n"
+	"        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);\n"
+	"    }\n"
+	"}\n";
+
 
 /* Door 0, 1, 2, 3, spawnpoint */
 World *load_world(u16 world_id, u8 spawn);
@@ -256,6 +321,8 @@ int main(void)
     go.puzzle_train = load_puzzle(puzzle_train_array[go.puzzle_train_id]);
     go.puzzle_boss = load_puzzle(puzzle_boss);
     go.blinds_down = true;
+    go.puzzle_shader = LoadShaderFromMemory(vs, fs);
+
 
 #if defined(PLATFORM_WEB)
     emscripten_set_main_loop(loop, 0, 1);
@@ -268,6 +335,7 @@ int main(void)
 #endif
 
     UnloadTexture(go.atlas);
+    UnloadShader(go.puzzle_shader);
     free_puzzle(go.puzzle_fun);
     free_puzzle(go.puzzle_train);
     free_world(go.world);
@@ -318,12 +386,12 @@ void loop(void)
 
     ClearBackground(BLACK);
     switch (go.state) {
-        case PUZZLE_FUN: { render_puzzle(go.puzzle_fun, go.pstate, go.atlas, go.player_atlas); } break;
-        case PUZZLE_FUN_WIN: { render_puzzle_win(go.puzzle_fun, &go.pstate, go.atlas, go.player_atlas); } break;
-        case PUZZLE_TRAIN_WIN: { render_puzzle_win(go.puzzle_train, &go.pstate, go.atlas, go.player_atlas); } break;
-        case PUZZLE_TRAIN: { render_puzzle(go.puzzle_train, go.pstate, go.atlas, go.player_atlas); } break;
-        case PUZZLE_BOSS_WIN: { render_puzzle_win(go.puzzle_boss, &go.pstate, go.atlas, go.player_atlas); } break;
-        case PUZZLE_BOSS: { render_puzzle(go.puzzle_boss, go.pstate, go.atlas, go.player_atlas); } break;
+        case PUZZLE_FUN: { render_puzzle(go.puzzle_fun, go.pstate, go.atlas, go.player_atlas, go.puzzle_shader); } break;
+        case PUZZLE_FUN_WIN: { render_puzzle_win(go.puzzle_fun, &go.pstate, go.atlas, go.player_atlas, go.puzzle_shader); } break;
+        case PUZZLE_TRAIN_WIN: { render_puzzle_win(go.puzzle_train, &go.pstate, go.atlas, go.player_atlas, go.puzzle_shader); } break;
+        case PUZZLE_TRAIN: { render_puzzle(go.puzzle_train, go.pstate, go.atlas, go.player_atlas, go.puzzle_shader); } break;
+        case PUZZLE_BOSS_WIN: { render_puzzle_win(go.puzzle_boss, &go.pstate, go.atlas, go.player_atlas, go.puzzle_shader); } break;
+        case PUZZLE_BOSS: { render_puzzle(go.puzzle_boss, go.pstate, go.atlas, go.player_atlas, go.puzzle_shader); } break;
         case WORLD: { render_world(go.world, go.pstate, go.world_atlas, go.player_atlas); } break;
         case SLEEP: { render_sleep(go.world, go.sleep, go.pstate, go.world_atlas, go.player_atlas); } break;
         case FAINT: { render_sleep(go.world, go.sleep, go.pstate, go.atlas, go.player_atlas); } break;
