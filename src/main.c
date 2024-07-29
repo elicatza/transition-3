@@ -314,7 +314,7 @@ void loop(void)
 
     ClearBackground(BLACK);
     switch (go.state) {
-        case PUZZLE_FUN: { render_puzzle(go.puzzle_fun, go.pstate, go.atlas, go.atlas); } break;
+        case PUZZLE_FUN: { render_puzzle(go.puzzle_fun, go.pstate, go.atlas, go.player_atlas); } break;
         case PUZZLE_FUN_WIN: { render_puzzle_win(go.puzzle_fun, &go.pstate, go.atlas, go.player_atlas); } break;
         case PUZZLE_TRAIN_WIN: { render_puzzle_win(go.puzzle_train, &go.pstate, go.atlas, go.player_atlas); } break;
         case PUZZLE_TRAIN: { render_puzzle(go.puzzle_train, go.pstate, go.atlas, go.player_atlas); } break;
@@ -817,7 +817,11 @@ void render_world(World *w, PlayerState pstate, Texture2D atlas, Texture2D playe
     w->wdim.y = w->cell_width * w->rows;
 
     render_world_cells(w, atlas);
-    render_player(vspos_of_ws(w, w->player.pos), (Vector2) { w->cell_width, w->cell_width }, pstate, player_atlas);
+    render_player(vspos_of_ws(w, w->player.pos),
+                  (Vector2) { w->cell_width, w->cell_width },
+                  pstate,
+                  player_atlas,
+                  GRAY);
     // render_world_height_lines(w);
     render_hud_rhs(go.pstate, w->wpos.x + w->wdim.x, atlas);
     render_hud_lhs(go.pstate, w->wpos.x + w->wdim.x, atlas);

@@ -119,7 +119,7 @@ void render_hud_lhs(PlayerState pstate, float offx, Texture2D atlas)
     DrawText(day, x + padx, ysec * 0.5f, 19.f, WHITE);
 }
 
-void render_player(Vector2 vs_pos, Vector2 dim, PlayerState pstate, Texture2D player_atlas)
+void render_player(Vector2 vs_pos, Vector2 dim, PlayerState pstate, Texture2D player_atlas, Color color)
 {
 
     Rectangle dest = {
@@ -147,7 +147,7 @@ void render_player(Vector2 vs_pos, Vector2 dim, PlayerState pstate, Texture2D pl
         src.y = 0.f;
     }
 
-    Color color = blend(GRAY, pstate.ani_color, 3.f * pstate.ani_time_remaining / pstate.ani_time_max);
+    color = blend(color, pstate.ani_color, 3.f * pstate.ani_time_remaining / pstate.ani_time_max);
     DrawRectangleV(vs_pos, dim, color);
 
     DrawTexturePro(player_atlas, src, dest, (Vector2) { 0.f, 0.f }, 0, WHITE);

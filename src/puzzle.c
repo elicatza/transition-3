@@ -313,7 +313,7 @@ int get_mirror_direction(Puzzle *p)
 /**
  * @param options. Check MIRROR_ namespace for options.
  */
-void mirror_over_line(Puzzle *p, int button_id, int options)
+void mirror_over_line(Puzzle *p, int button_id, int options, PlayerState *pstate)
 {
     ASSERT(options != 0, "Invalid options");
     Button ws_btn = p->button_case[button_id];
@@ -321,6 +321,8 @@ void mirror_over_line(Puzzle *p, int button_id, int options)
 
     size_t len = case_len(p->player_case);
     size_t i;
+    bool found_valid = false;
+
     for (i = 0; i < len; ++i) {
 
         Vector2 mirrored = { 0 };
@@ -357,11 +359,16 @@ void mirror_over_line(Puzzle *p, int button_id, int options)
                 case_push(p->player_case, mirrored_p);
             } else {
                 // In bound of puzzle
+                if (found_valid == false) found_valid = true;
                 mirrored_p.state = PHYSICAL;
                 case_push(p->player_case, mirrored_p);
                 INFO("added new at %.0f, %.0f", mirrored.x, mirrored.y);
             }
         }
+    }
+    if (found_valid) {
+        player_start_animation(pstate, C_PINK);
+        pstate->pain += PENALTY_PAIN;
     }
 }
 
@@ -419,7 +426,9 @@ GameState update_puzzle(Puzzle *p, PlayerState *pstate, GameState default_rv)
     } else {
         dir = NONE;
     }
+
     if (dir != NONE) {
+        bool found_valid = false;
         qsort(p->player_case, case_len(p->player_case), sizeof *(p->player_case), cmp_fn);
         size_t i;
         for (i = 0; i < case_len(p->player_case); ++i) {
@@ -441,9 +450,8 @@ GameState update_puzzle(Puzzle *p, PlayerState *pstate, GameState default_rv)
             }
             // Check collisions
             if (is_valid_pos(p, new_player)) {
+                if (found_valid == false && penatlty) found_valid = true;
                 if (penatlty) {
-                    pstate->energy -= PENALTY_ENERGY;
-                    player_start_animation(pstate, BLUE);
                     if (pstate->energy < 0) {
                         pstate->energy = 0.f;
                         return FAINT;
@@ -452,6 +460,10 @@ GameState update_puzzle(Puzzle *p, PlayerState *pstate, GameState default_rv)
                 new_player.height = cell_height_at_pos(p, new_player.pos);
                 memcpy(&p->player_case[i], &new_player, sizeof new_player);
             }
+        }
+        if (found_valid) {
+            pstate->energy -= PENALTY_ENERGY;
+            player_start_animation(pstate, BLUE);
         }
     }
 
@@ -474,13 +486,13 @@ GameState update_puzzle(Puzzle *p, PlayerState *pstate, GameState default_rv)
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             // Write changes
             if (CheckCollisionPointRec(GetMousePosition(), p->rec)) {
-                mirror_over_line(p, p->clicked_button, options);
+                mirror_over_line(p, p->clicked_button, options, pstate);
             }
             p->clicked_button = -1;
         } else {
             // Preview changes
             if (CheckCollisionPointRec(GetMousePosition(), p->rec)) {
-                mirror_over_line(p, p->clicked_button, options | MIRROR_PREVIEW);
+                mirror_over_line(p, p->clicked_button, options | MIRROR_PREVIEW, pstate);
             }
         }
     }
@@ -678,11 +690,16 @@ void render_puzzle(Puzzle *p, PlayerState pstate, Texture2D atlas, Texture2D pla
 
     // Draws players
     for (i = 0; i < case_len(p->player_case); ++i) {
+        Color color = WHITE;
+        if (p->player_case[i].state == PREVIEW) {
+            color = GRAY;
+        }
         render_player(
             vs_pos_of_ws(p, p->player_case[i].pos), 
             (Vector2) { p->rec.height / p->cols, p->rec.height / p->cols },
             pstate,
-            player_atlas);
+            player_atlas,
+            color);
     }
     for (i = 0; i < case_len(p->player_case); ++i) {
         if (p->player_case[i].state == PREVIEW) {
