@@ -52,6 +52,10 @@ typedef struct {
     float brightness;  /* 0..1 */
     bool did_faint;
     int face_id;
+
+    Color ani_color;
+    float ani_time_max;
+    float ani_time_remaining;
 } PlayerState;
 
 void render_hud_rhs(PlayerState pstate, float offx, Texture2D atlas);

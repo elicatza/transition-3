@@ -586,6 +586,21 @@ void render_sleep(World *w, Sleep s, PlayerState pstate, Texture2D atlas, Textur
     DrawTextEx(GetFontDefault(), instructions, ipos, w->wdim.y / 20.f, 4.f, WHITE);
 }
 
+void update_pstate(PlayerState *pstate)
+{
+    pstate->ani_time_remaining -= GetFrameTime();
+    if (pstate->ani_time_remaining < 0.f) {
+        pstate->ani_time_remaining = 0.f;
+    }
+}
+
+void player_start_animation(PlayerState *pstate, Color color)
+{
+    pstate->ani_color = color;
+    pstate->ani_time_max = 0.5f;
+    pstate->ani_time_remaining = 0.5f;
+}
+
 GameState update_world(World *w, PlayerState *pstate)
 {
     if (IsKeyPressed(KEY_T)) {
@@ -644,6 +659,8 @@ GameState update_world(World *w, PlayerState *pstate)
         if (is_valid_wspos(w, new_p.pos, new_p.height)) {
             if (penalty) {
                 pstate->face_id = new_face_id;
+                INFO("Starting animation");
+                player_start_animation(pstate, C_BLUE);
                 pstate->energy -= PENALTY_ENERGY;
                 if (pstate->energy < 0) {
                     pstate->energy = 0.f;
@@ -705,6 +722,7 @@ GameState update_world(World *w, PlayerState *pstate)
     for (i = 0; i < case_len(w->cell_case); ++i) {
         w->cell_case[i].color = BLACK;
     }
+    update_pstate(pstate);
     apply_lighting(w);
     return WORLD;
 }
@@ -804,7 +822,8 @@ void render_world_player(World *w, PlayerState pstate, Texture2D player_atlas)
         src.y = 0.f;
     }
 
-    DrawRectangleV(vs_pos, (Vector2) { w->cell_width, w->cell_width }, GRAY);
+    Color color = blend(GRAY, pstate.ani_color, 3.f * pstate.ani_time_remaining / pstate.ani_time_max);
+    DrawRectangleV(vs_pos, (Vector2) { w->cell_width, w->cell_width }, color);
 
     DrawTexturePro(player_atlas, src, dest, (Vector2) { 0.f, 0.f }, 0, WHITE);
 }

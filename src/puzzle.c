@@ -7,8 +7,7 @@
 #include "case.h"
 #include "core.h"
 
-#define TEXTURE_BUTTON_OFFX 0
-#define TEXTURE_BUTTON_OFFY 1
+#define TEXTURE_BUTTON_OFFX 4.f
 
 #define M_BLUE CLITERAL(Color){ 0x55, 0xcd, 0xfc, 100 }     // Blue
 
@@ -559,9 +558,6 @@ void render_height_lines(Puzzle *p)
 /**
  * Should be lighter based on hight / darker based on depth
  */
-void render_player(Puzzle *p, Player player);
-
-
 void render_player(Puzzle *p, Player player)
 {
     float cell_width = p->rec.height / p->cols;
