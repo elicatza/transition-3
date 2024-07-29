@@ -353,8 +353,12 @@ enum PhysicalType get_type_at_pos(World *w, U32x2 pos)
     return MASK_PHYSICAL_T(w->cell_case[pos.y * w->cols + pos.x].info);
 }
 
-
 Color get_color_at_pos(World *w, U32x2 pos)
+{
+    return w->cell_case[pos.y * w->cols + pos.x].color;
+}
+
+Color get_colorinfo_at_pos(World *w, U32x2 pos)
 {
     enum VisualColor color = MASK_COLOR(w->cell_case[pos.y * w->cols + pos.x].info);
     switch (color) {
@@ -436,7 +440,7 @@ void apply_lighting(World *w)
 
             if (go.blinds_down && get_type_at_pos(w, pos) == PWINDOW) continue;
 
-            Color color = get_color_at_pos(w, pos);
+            Color color = get_colorinfo_at_pos(w, pos);
             int nx, ny;
             for (nx = 0; nx < (int) w->cols; ++nx) {
                 for (ny = 0; ny < (int) w->rows; ++ny) {
@@ -733,16 +737,13 @@ void render_world_cells(World *w, Texture2D atlas)
         float rotation = 0.f;
         switch ((enum PhysicalType) MASK_PHYSICAL_T(cell.info)) {
             case (PEMPTY): { continue; } break;
-            case (PGROUND): { src.x = 0.f; src.y = 0.f; } break;
-            case (PBLINDS): { src.x = 6.f * 16.f; src.y = 0.f; } break;
-            case (PWINDOW): {
-                if (go.blinds_down) continue;
-                src.x = 48.f; src.y = 0.f;
-            } break;
-            case (PBED): { src.x = 16.f; src.y = 0.f; } break;
-            case (PBED_END): { src.x = 32.f; src.y = 0.f; } break;
+            case (PGROUND): { src.x = 0.f * 16.f; src.y = 0.f; } break;
+            case (PBED): { src.x = 1.f * 16.f; src.y = 0.f; } break;
+            case (PBED_END): { src.x = 2.f * 16.f; src.y = 0.f; } break;
+            case (PWINDOW): { if (go.blinds_down) continue; src.x = 3.f * 16.f; src.y = 0.f; } break;
             case (PDOOR): { src.x = 4.f * 16.f, src.y = 0.f; } break;
             case (PTABLE): { src.x = 5.f * 16.f; src.y = 0.f; } break;
+            case (PBLINDS): { src.x = 6.f * 16.f; src.y = 0.f; } break;
             case (PBOSS): { src.x = 7.f * 16.f; src.y = 0.f; } break;
             case (PTABLE_TL): { src.x = 8.f * 16.f; src.y = 0.f; } break;
             case (PTABLE_TR): { src.x = 9.f * 16.f; src.y = 0.f; } break;
@@ -752,8 +753,12 @@ void render_world_cells(World *w, Texture2D atlas)
             case (PPUZZLE2): { src.x = 13.f * 16.f; src.y = 0.f; } break;
         }
 
-        color = apply_shade(color, 0.4f);
-        color = blend(color, cell.color, 0.4);
+        // color = apply_shade(color, 0.4f);
+        // color = blend(color, cell.color, 0.5);
+        color = ColorTint(color, cell.color);
+        color = ColorBrightness(color, 0.2f);
+        w->cell_case[i].color = color;
+        // INFO("Color: %d, %d, %d, %d", color.r, color.g, color.b, color.a);
         DrawTexturePro(atlas, src, dest, center, rotation, color); // Draw a part of a texture defined by a rectangle with 'pro' parameters
         // cell.lighting = 0.5 + (lightness / 30.f);
         // color = blend(color, C_BLUE, cell.lighting + 5);
@@ -764,6 +769,14 @@ void render_world_cells(World *w, Texture2D atlas)
         // DrawRectangleV(vspos, dim, color);
     }
 }
+
+// RLAPI Color Fade(Color color, float alpha);                                 // Get color with alpha applied, alpha goes from 0.0f to 1.0f
+// RLAPI Vector4 ColorNormalize(Color color);                                  // Get Color normalized as float [0..1]
+// RLAPI Color ColorFromNormalized(Vector4 normalized);                        // Get Color from normalized values [0..1]
+// RLAPI Color ColorTint(Color color, Color tint);                             // Get color multiplied with another color
+// RLAPI Color ColorContrast(Color color, float contrast);                     // Get color with contrast correction, contrast values between -1.0f and 1.0f
+// RLAPI Color ColorBrightness(Color color, float factor);                     // Get color with brightness correction, brightness factor goes from -1.0f to 1.0f
+// RLAPI Color ColorAlphaBlend(Color dst, Color src, Color tint);              // Get src alpha-blended into dst color with tint
 
 void render_world_height_lines(World *w)
 {
@@ -817,11 +830,14 @@ void render_world(World *w, PlayerState pstate, Texture2D atlas, Texture2D playe
     w->wdim.y = w->cell_width * w->rows;
 
     render_world_cells(w, atlas);
+    
+    Color color = get_color_at_pos(w, w->player.pos);
+    INFO("Color: %d, %d, %d, %d", color.r, color.g, color.b, color.a);
     render_player(vspos_of_ws(w, w->player.pos),
                   (Vector2) { w->cell_width, w->cell_width },
                   pstate,
                   player_atlas,
-                  GRAY);
+                  color);
     // render_world_height_lines(w);
     render_hud_rhs(go.pstate, w->wpos.x + w->wdim.x, atlas);
     render_hud_lhs(go.pstate, w->wpos.x + w->wdim.x, atlas);
@@ -837,7 +853,7 @@ void fill_world(World *w, u16 *wbody)
             Cell cell;
             cell.pos = (U32x2) { col, row };
             cell.info = info;
-            cell.color = BLACK;
+            cell.color = WHITE;
             case_push(w->cell_case, cell);
         }
     }

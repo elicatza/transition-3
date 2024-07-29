@@ -147,10 +147,12 @@ void render_player(Vector2 vs_pos, Vector2 dim, PlayerState pstate, Texture2D pl
         src.y = 0.f;
     }
 
-    color = blend(color, pstate.ani_color, 3.f * pstate.ani_time_remaining / pstate.ani_time_max);
-    DrawRectangleV(vs_pos, dim, color);
+    Color fade = Fade(pstate.ani_color, pstate.ani_time_remaining / pstate.ani_time_max);
 
-    DrawTexturePro(player_atlas, src, dest, (Vector2) { 0.f, 0.f }, 0, WHITE);
+    DrawRectangleV(vs_pos, dim, color);
+    DrawRectangleV(vs_pos, dim, fade);
+
+    DrawTexturePro(player_atlas, src, dest, (Vector2) { 0.f, 0.f }, 0, color);
 }
 
 void player_start_animation(PlayerState *pstate, Color color)
