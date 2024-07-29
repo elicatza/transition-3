@@ -20,6 +20,9 @@
 #define WIDTH 800
 #define HEIGHT (WIDTH / ASPECT_RATIO)
 
+#define TIME_LIGHT_MAX 0.1f
+#define TIME_LIGHT_MIN 0.02f
+
 /**
  * New format
  * 0bxxxx0000: physical {type1[empty, ground, blinds, bed, door, puzzle1, puzzle2, window](3), height(1)}
@@ -243,9 +246,10 @@ int main(void)
     go.pstate.energy_lim = 1.0f;
     go.pstate.pain = 0.2f;
     go.pstate.pain_max = 1.f;
-    go.pstate.time = 0.25; /* 06:00 */
+    go.pstate.time = 0.3334; /* 08:00 */
     go.pstate.did_faint = false;
     go.pstate.face_id = 0;
+    go.pstate.light = 0.25f;
     go.puzzle_fun_id = 0;
     go.puzzle_train_id = 0;
     go.puzzle_fun = load_puzzle(puzzle_fun_array[go.puzzle_fun_id]);
@@ -326,6 +330,12 @@ void loop(void)
     }
 
     EndDrawing();
+}
+
+float light_from_time(PlayerState pstate)
+{
+    float day_time = (pstate.time - floorf(pstate.time)) * PI * 2.f;
+    return MAX(sinf(day_time - PI / 2.f), TIME_LIGHT_MIN) * TIME_LIGHT_MAX;  /* Light from 6 18 */
 }
 
 Cell cell_at_pos(World *w, U32x2 pos)
@@ -428,15 +438,16 @@ Color apply_tint(Color c, u32 lightness)
 }
 
 
-void apply_lighting(World *w)
+void apply_lighting(World *w, PlayerState pstate)
 {
     size_t col, row;
     for (row = 0; row < w->rows; ++row) {
         for (col = 0; col < w->cols; ++col) {
             U32x2 pos = { col, row };
 
-            u8 b = get_brightness_at_pos(w, pos);
+            float b = get_brightness_at_pos(w, pos);
             if (b == 0) continue;
+            b *= light_from_time(pstate) / TIME_LIGHT_MAX;
 
             if (go.blinds_down && get_type_at_pos(w, pos) == PWINDOW) continue;
 
@@ -520,9 +531,11 @@ GameState update_sleep(World **w, Sleep *s, PlayerState *pstate, GameState gs)
         spawn_player(*w, 4);
         *s = init_faint(*pstate);
         pstate->did_faint = true;
+        pstate->light -= 0.05f;
         return SLEEP;
     }
 
+    update_world(*w, pstate);
     pstate->time += s->step_time * GetFrameTime();
     if (pstate->time >= s->end_time) {
         pstate->energy = s->end_energy;
@@ -699,7 +712,9 @@ GameState update_world(World *w, PlayerState *pstate)
         w->cell_case[i].color = BLACK;
     }
     update_pstate(pstate);
-    apply_lighting(w);
+    pstate->light_tmp = 0;
+    pstate->light_tmp += light_from_time(*pstate);
+    apply_lighting(w, *pstate);
     return WORLD;
 }
 
@@ -711,7 +726,7 @@ Vector2 vspos_of_ws(World *w, U32x2 ws)
     return vs;
 }
 
-void render_world_cells(World *w, Texture2D atlas)
+void render_world_cells(World *w, PlayerState pstate, Texture2D atlas)
 {
     (void) atlas;
     size_t i;
@@ -756,9 +771,8 @@ void render_world_cells(World *w, Texture2D atlas)
         // color = apply_shade(color, 0.4f);
         // color = blend(color, cell.color, 0.5);
         color = ColorTint(color, cell.color);
-        color = ColorBrightness(color, 0.2f);
+        color = ColorBrightness(color, MAX(pstate.light + pstate.light_tmp, 0.25f));
         w->cell_case[i].color = color;
-        // INFO("Color: %d, %d, %d, %d", color.r, color.g, color.b, color.a);
         DrawTexturePro(atlas, src, dest, center, rotation, color); // Draw a part of a texture defined by a rectangle with 'pro' parameters
         // cell.lighting = 0.5 + (lightness / 30.f);
         // color = blend(color, C_BLUE, cell.lighting + 5);
@@ -829,10 +843,9 @@ void render_world(World *w, PlayerState pstate, Texture2D atlas, Texture2D playe
     w->wdim.x = w->cell_width * w->cols;
     w->wdim.y = w->cell_width * w->rows;
 
-    render_world_cells(w, atlas);
+    render_world_cells(w, pstate, atlas);
     
     Color color = get_color_at_pos(w, w->player.pos);
-    INFO("Color: %d, %d, %d, %d", color.r, color.g, color.b, color.a);
     render_player(vspos_of_ws(w, w->player.pos),
                   (Vector2) { w->cell_width, w->cell_width },
                   pstate,

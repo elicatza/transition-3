@@ -91,7 +91,7 @@ void format_time(PlayerState pstate, char *dest, size_t sz)
     ASSERT(sz >= 6, "Buffer is too small");
     float t = (pstate.time - floorf(pstate.time)) * 24.f;
     float hour = floorf(t);
-    float minute = (t - floorf(t)) * 60.f;
+    float minute = (t - floorf(t)) * 59.f;
     snprintf(dest, sz, "%02.0f:%02.0f", hour, minute);
 }
 

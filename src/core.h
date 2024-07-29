@@ -47,6 +47,8 @@ typedef struct {
     float pain_max;
     float energy;
     float energy_max;
+    float light; /* [0, 1] */
+    float light_tmp;
     float time;  /* 0-1 ranges a whole day */
     float energy_lim;
     float brightness;  /* 0..1 */
