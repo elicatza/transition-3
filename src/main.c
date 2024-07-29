@@ -455,9 +455,11 @@ void apply_lighting(World *w, PlayerState pstate)
             int nx, ny;
             for (nx = 0; nx < (int) w->cols; ++nx) {
                 for (ny = 0; ny < (int) w->rows; ++ny) {
-                    if (nx == (int) col && ny == (int) row) continue;
-                    // inverse square law light
                     float val = 1.f / powf(abs((int) col - nx) + abs((int) row - ny), 2.f);
+                    if (nx == (int) col && ny == (int) row) {
+                        val = 1.f;
+                    }
+                    // inverse square law light
                     size_t i = ny * w->cols + nx;
                     w->cell_case[i].color = blend(w->cell_case[i].color, color, val * b);
                 }
