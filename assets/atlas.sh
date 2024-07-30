@@ -10,6 +10,7 @@
 
 magick \
     \( ./assets/sprites/d1.png ./assets/sprites/d2.png ./assets/sprites/d3.png ./assets/sprites/d4.png ./assets/sprites/button.png +append \) \
+    \( ./assets/sprites/g1.png ./assets/sprites/g2.png ./assets/sprites/g3.png ./assets/sprites/g4.png +append \) \
     -append ./assets/atlas.png
     # \( musicals/follies/cover.png musicals/ghost-quartet/cover.png +append \) \
     # \( musicals/god-bless-you-mr-rosewater/cover.png musicals/godspell/cover.png musicals/hadestown/cover.png musicals/hamilton/cover.png musicals/howard-sings-ashman/cover.png musicals/in-trousers/cover.png musicals/into-the-woods/cover.png +append \) \

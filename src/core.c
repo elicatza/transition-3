@@ -173,12 +173,14 @@ void update_pstate(PlayerState *pstate)
 void apply_pain(PlayerState *pstate)
 {
     player_start_animation(pstate, C_PINK);
+    pstate->time += PENALTY_PAIN_TIME;
     pstate->pain += PENALTY_PAIN;
 }
 
 void apply_energy_loss(PlayerState *pstate)
 {
     player_start_animation(pstate, C_BLUE);
+    pstate->time += PENALTY_ENERGY_TIME;
     pstate->energy -= PENALTY_ENERGY;
 }
 

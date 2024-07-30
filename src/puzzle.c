@@ -32,14 +32,22 @@
  * body cell map
  */
 // static unsigned char puzzle1[] = { 
-unsigned char puzzle_fun_array[2][103] = {
+unsigned char puzzle_fun_array[10][103] = {
     {
         5, 5, 50,
-        1, 1, 3, 1, 1,
-        1,1|P,3, 1, 1,
-        1, 1, 3, 3, 1,
-        3, 1, 3,1|G,1,
-        1, 1, 3, 1, 1,
+        3,3|P,3, 3, 3,
+        2, 3,1|G,1, 2,
+       2|G,1, 3, 1,2|G,
+        2, 1, 1, 3, 2,
+        3, 3, 3|G, 3, 3,
+    },
+    {
+        5, 5, 50,
+        0, 0, 1, 1, 1,
+        0,0|P,1, 1, 1,
+        0, 0, 3, 3, 1,
+        3, 0, 3,1|G,1,
+        0, 0, 3, 1, 1,
     },
     {
         10, 10, 50,
@@ -56,29 +64,29 @@ unsigned char puzzle_fun_array[2][103] = {
     },
 };
 
-unsigned char puzzle_train_array[2][103] = {
-    {
-        5, 5, 50,
-        1, 1, 3, 1, 1,
-        1,1|P,3, 1, 1,
-        1, 1, 3, 3, 1,
-        3, 1, 3,1|G,3,
-        1, 1, 3, 3, 3,
-    },
-    {
-        10, 10, 50,
-        1, 1, 1, 1, 1, 1, 1, 3,3|G,3,
-        1, 1, 0, 1, 1, 1, 1, 2, 3, 3,
-        1, 0, 0, 0, 1, 1, 1, 2, 2, 2,
-        1, 0, 0, 1, 1, 1, 1, 2, 2, 2,
-        1, 1, 1, 1, 1,1|P,1, 2, 2, 2,
-        1, 1, 1, 1, 1, 1, 1, 2, 2, 2,
-        1, 1, 2, 2, 1, 2,2|G,2, 3, 3,
-        2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
-        2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
-        2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
-    },
+unsigned char puzzle_train_array[20][25 + 3] = {
+    { 5, 5, 50, 1, 1, 1, 1, 1, 1, 1 ,3, 1, 1, 1, 1, 3, 3, 1, 3, 1, 3,1|G,1, 1,1|P,3, 3, 3, },
+    { 5, 5, 50, 0, 0, 1, 1, 1, 0,0|P,1, 1, 1, 0, 0, 3, 3, 1, 3, 0, 3,1|G,1, 0, 0, 3, 1, 1, },
+    { 5, 5, 50, 1|P,1, 3, 1, 1, 3, 1, 3, 3, 3, 1, 1, 3, 1, 1, 3, 1, 3,1|G,3, 1, 1, 3, 1, 1, },
+    { 5, 5, 50, 1, 1, 3, 1, 1, 1,1|P,3, 1, 1, 1, 1, 3, 1, 1, 3, 1, 3,1|G,3, 1, 1, 3, 3, 3, },
+    { 5, 5, 50, 2, 2, 3,1|G, 2, 3, 3, 3,1|P,3, 1, 1, 3, 1, 1, 3, 3, 3, 1, 3, 1,1|G,1, 1, 1, },
+    { 5, 5, 50, 2, 2, 3, 1, 2, 3, 3, 3,1|P,3, 1, 1, 3, 1, 1, 3, 3, 3, 1, 3, 1,3|G, 3, 1, 1, },
+    { 5, 5, 50, 2,2|P,3, 1, 2, 3, 3,3|G,1, 3, 1, 1, 3, 1, 1, 3, 3, 3, 1, 2, 1,1|G,2, 2, 2, },
+    { 5, 5, 50, 1,1|P,2, 1, 2, 1, 2,3|G,1, 3, 1, 1, 3, 1, 1, 3, 3, 3, 1, 2, 1, 1, 2,2|G,2, },
+    { 5, 5, 50, 1,1|P,2, 1, 2, 1, 2,3|G,1,3|G, 1, 1, 3, 1, 1, 3, 3, 3, 1, 2, 1, 1, 2, 2, 2, },
+    { 5, 5, 50, 3,3|P,3, 3, 3, 3, 1,1|G,1, 3, 3, 1, 3, 1, 3, 3, 1, 1, 1, 3, 3, 3, 3|G, 3, 3, },
+    { 5, 5, 50, 0,0|P,0, 0, 0, 1, 1,1|G,1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 0, 0, 0|G, 0, 0, },
+    { 5, 5, 50, 3,3|P,3, 3, 3, 1, 1,1|G,1, 2, 2, 2, 2, 2, 2, 3, 3, 3,3|G,3, 0, 0, 0, 0, 0, },
+    { 5, 5, 50, 3, 3, 3, 3, 3, 1, 1,1|G,1, 2, 2,2|P,2, 2, 2, 3, 3, 3,3|G,3, 0, 0, 0, 0, 0, },
+    { 5, 5, 50, 3, 3, 3, 3, 3, 1, 1,0|G,1, 2, 2,2|P, 2, 0, 2, 3, 3, 3,0|G,3, 0, 0, 0, 0, 0, },
+    { 5, 5, 50, 3,3|P,3, 2, 3, 1, 2,2|G,2, 1, 0, 0, 1, 2, 3, 0, 1, 1,0|G,3, 3, 2, 0, 0, 0, },
+    { 5, 5, 50, 3,3|P,3, 2, 3, 1|G, 2,2,2, 1, 0, 0, 1, 2, 3, 0|G,1, 1, 0, 3|G, 3, 2, 0,0,0, },
+    { 5, 5, 50, 3, 3,3, 2, 3, 1|G, 2,2,2|G, 1, 0, 0, 1, 2, 3, 0, 1, 1, 0, 3, 3|P, 2|G, 0,0,0, },
+    { 5, 5, 50, 1, 3,3, 2, 3, 1|G, 3,2,2, 1, 0, 0, 1|P, 2|G, 3, 3, 1, 1, 1, 3, 3, 2|G, 0,2,2, },
+    { 5, 5, 50, 1, 3,3, 3|P, 3, 1|G, 3,2,2, 1, 2, 0, 2, 2, 0, 1, 1, 1, 1|G, 0, 0, 2|G, 0,2,1, },
+    { 5, 5, 50, 3, 3,3, 2|P, 3, 3|G, 3,2,2, 1, 2, 0, 2, 2, 0, 2, 3, 1, 3|G, 3, 0, 1|G, 0,2,1, },
 };
+
 unsigned char puzzle_boss[20 * 20 + 3] = {
     20, 20, 50,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
@@ -322,7 +330,6 @@ int mirror_over_line(Puzzle *p, int button_id, int options, PlayerState *pstate)
 
     size_t len = case_len(p->player_case);
     size_t i;
-    bool found_valid = false;
 
     for (i = 0; i < len; ++i) {
 
@@ -360,16 +367,13 @@ int mirror_over_line(Puzzle *p, int button_id, int options, PlayerState *pstate)
                 case_push(p->player_case, mirrored_p);
             } else {
                 // In bound of puzzle
-                if (found_valid == false) found_valid = true;
+                apply_pain(pstate);
+                if (should_faint(*pstate)) return FAINT;
                 mirrored_p.state = PHYSICAL;
                 case_push(p->player_case, mirrored_p);
                 INFO("added new at %.0f, %.0f", mirrored.x, mirrored.y);
             }
         }
-    }
-    if (found_valid) {
-        apply_pain(pstate);
-        if (should_faint(*pstate)) return FAINT;
     }
     return -1;
 }
@@ -534,10 +538,19 @@ void render_button(Puzzle *p, Button *btn, Texture2D atlas)
     }
 }
 
+static Texture2D texture = { 0 };  // Load blank texture to fill on shader
+
 void render_height_lines(Puzzle *p)
 {
-    size_t row, col;
     float cell_width = p->rec.width / p->cols;
+    if (texture.width == 0) {
+        INFO("Width ");
+        Image imBlank = GenImageColor(20, 20, C_PINK);
+        texture = LoadTextureFromImage(imBlank);  // Load blank texture to fill on shader
+        UnloadImage(imBlank);
+    }
+
+    size_t row, col;
     for (row = 0; row < p->rows; ++row) {
         for (col = 0; col < p->cols; ++col) {
             Cell c = p->cell_case[row * p->cols + col];
@@ -550,7 +563,22 @@ void render_height_lines(Puzzle *p)
                     Vector2 start = vs_pos_of_ws(p, cd.pos);
                     Vector2 end = { start.x + cell_width, start. y};
                     float diff = fabsf((float) MASK_HEIGHT(c.info) - MASK_HEIGHT(cd.info));
-                    DrawLineEx(start, end, diff * 2.f, RED);
+                    // DrawTextureV(texture, start, RED);
+                    DrawTexturePro(texture,
+                                   (Rectangle) {
+                                   .x = 0.f,
+                                   .y = 0.f,
+                                   .width = end.x - start.x,
+                                   .height = 3.f * diff,
+                                   },
+                                   (Rectangle) {
+                                   .x = start.x,
+                                   .y = start.y - (1.5f * diff),
+                                   .width = end.x - start.x,
+                                   .height = diff * 3.f,
+                                   },
+                                   (Vector2) {0.f, 0.f }, 0.f, RED);
+                    // DrawLineEx(start, end, diff * 2.f, RED);
                 }
             }
 
@@ -562,7 +590,22 @@ void render_height_lines(Puzzle *p)
                     Vector2 start = vs_pos_of_ws(p, cr.pos);
                     Vector2 end = { start.x, start.y + cell_width};
                     float diff = fabsf((float) MASK_HEIGHT(c.info) - MASK_HEIGHT(cr.info));
-                    DrawLineEx(start, end, diff * 2.f, RED);
+                    // DrawTextureV(texture, start, RED);
+                    DrawTexturePro(texture,
+                                   (Rectangle) {
+                                   .x = 0.f,
+                                   .y = 0.f,
+                                   .width = 3.f * diff,
+                                   .height = end.y - start.y,
+                                   },
+                                   (Rectangle) {
+                                   .x = start.x - (1.5f * diff),
+                                   .y = start.y,
+                                   .width = diff * 3.f,
+                                   .height = end.y - start.y,
+                                   },
+                                   (Vector2) {0.f, 0.f }, 0.f, RED);
+                    // DrawLineEx(start, end, diff * 2.f, RED);
                 }
             }
 
@@ -603,18 +646,24 @@ void render_cell(Puzzle *p, Cell cell, Texture2D atlas)
 {
     Cell vs_cell = vs_cell_of_ws(p, cell);
     float cell_width = p->rec.width / p->cols;
-    Rectangle src = {
-        .x = 8.f * MASK_HEIGHT(cell.info), .y = 0.f,
-        .width = 8.f, .height = 8.f,
-    };
+    Rectangle src;
+    if (MASK_TYPE(vs_cell.info) == G) {
+        src = (Rectangle) {
+            .x = 8.f * MASK_HEIGHT(cell.info), .y = 8.f,
+            .width = 8.f, .height = 8.f,
+        };
+        // INFO("Goal: %d, %.2f", MASK_HEIGHT(cell.info), 8.f);
+    } else {
+        src = (Rectangle) {
+            .x = 8.f * MASK_HEIGHT(cell.info), .y = 0.f,
+            .width = 8.f, .height = 8.f,
+        };
+    }
     Rectangle dest = {
         .x = vs_cell.pos.x, .y = vs_cell.pos.y,
         .width = cell_width, .height = cell_width,
     };
     DrawTexturePro(atlas, src, dest, (Vector2) { 0.f, 0.f} , 0.f, WHITE);
-    if (MASK_TYPE(cell.info) == G) {
-        DrawRectangleRec(dest, RED);
-    }
 }
 
 void render_puzzle_grid(Puzzle *p)

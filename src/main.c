@@ -313,7 +313,7 @@ int main(void)
     go.world_atlas = LoadTextureFromImage(world_atlas);
     go.player_atlas = LoadTextureFromImage(player_atlas);
     go.world = load_world(0, 4);
-    go.state = MENU;
+    go.state = WORLD;
     go.pstate.energy = 0.3f;
     go.pstate.energy_max = 0.3f;
     go.pstate.energy_lim = 1.0f;
@@ -363,7 +363,8 @@ void loop(void)
             if (go.state == WORLD) {
                 go.puzzle_fun_id += 1;
                 if (go.puzzle_fun_id >= sizeof puzzle_fun_array / sizeof *puzzle_fun_array) {
-                    WARNING("Out of fun puzzles");
+                    // TODO give user feedback
+                    WARNING("Out of puzzles. I think you are ready now");
                     break;
                 }
                 Puzzle *p = load_puzzle(puzzle_fun_array[go.puzzle_fun_id]);
@@ -377,7 +378,8 @@ void loop(void)
             if (go.state == WORLD) {
                 go.puzzle_train_id += 1;
                 if (go.puzzle_train_id >= sizeof puzzle_train_array / sizeof *puzzle_train_array) {
-                    WARNING("Out of exercise puzzles");
+                    // TODO give user feedback
+                    WARNING("Out of puzzles. I think you are ready now");
                     break;
                 }
                 Puzzle *p = load_puzzle(puzzle_train_array[go.puzzle_train_id]);
@@ -531,7 +533,9 @@ void apply_lighting(World *w, PlayerState pstate)
 
             float b = get_brightness_at_pos(w, pos);
             if (b == 0) continue;
-            b *= light_from_time(pstate) / TIME_LIGHT_MAX;
+            if (get_type_at_pos(w, pos) == PWINDOW) {
+                b *= light_from_time(pstate) / TIME_LIGHT_MAX;
+            }
 
             if (go.blinds_down && get_type_at_pos(w, pos) == PWINDOW) continue;
 
@@ -733,9 +737,8 @@ GameState update_victory()
 
 void render_victory(World *w, PlayerState pstate, Texture2D atlas, Texture2D player_atlas)
 {
+    (void) player_atlas;
     render_hud_lhs(pstate, w->wpos.x + w->wdim.x, atlas);
-    Color bg = BLACK;
-    bg.a = 128;
 
     char *msg = "You've made it back in the world!";
     Vector2 sz = MeasureTextEx(GetFontDefault(), msg, FONT_SIZE_BIG, 4.f);
