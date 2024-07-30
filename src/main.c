@@ -268,6 +268,12 @@ void free_world(World *w);
 GameState update_sleep(World **w, Sleep *s, PlayerState *pstate, GameState gs);
 void render_sleep(World *w, Sleep s, PlayerState pstate, Texture2D atlas, Texture2D player_atlas);
 
+GameState update_victory();
+void render_victory(World *w, PlayerState pstate, Texture2D atlas, Texture2D player_atlas);
+
+void render_menu(void);
+GameState update_menu(void);
+
 
 
 void loop(void);
@@ -307,7 +313,7 @@ int main(void)
     go.world_atlas = LoadTextureFromImage(world_atlas);
     go.player_atlas = LoadTextureFromImage(player_atlas);
     go.world = load_world(0, 4);
-    go.state = WORLD;
+    go.state = MENU;
     go.pstate.energy = 0.3f;
     go.pstate.energy_max = 0.3f;
     go.pstate.energy_lim = 1.0f;
@@ -326,6 +332,7 @@ int main(void)
     go.puzzle_shader = LoadShaderFromMemory(vs, fs);
 
 
+    SetExitKey(0);
 #if defined(PLATFORM_WEB)
     emscripten_set_main_loop(loop, 0, 1);
 #else
@@ -349,6 +356,7 @@ int main(void)
 void loop(void)
 {
     switch (go.state) {
+        case MENU: { go.state = update_menu(); } break;
         case PUZZLE_FUN: { go.state = update_puzzle(go.puzzle_fun, &go.pstate, PUZZLE_FUN); } break;
         case PUZZLE_FUN_WIN: {
             go.state = update_puzzle_win(go.puzzle_fun, PUZZLE_FUN_WIN);
@@ -378,21 +386,27 @@ void loop(void)
             }
         } break;
         case PUZZLE_BOSS: { go.state = update_puzzle(go.puzzle_boss, &go.pstate, PUZZLE_BOSS); } break;
-        case PUZZLE_BOSS_WIN: { go.state = update_puzzle_win(go.puzzle_boss, PUZZLE_BOSS_WIN); } break;
+        case PUZZLE_BOSS_WIN: { go.state = update_victory(); } break;
         case WORLD: { go.state = update_world(go.world, &go.pstate); } break;
         case SLEEP: { go.state = update_sleep(&go.world, &go.sleep, &go.pstate, SLEEP); } break;
         case FAINT: { go.state = update_sleep(&go.world, &go.sleep, &go.pstate, FAINT); } break;
     }
 
+    if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_Q)) {
+        go.state = MENU;
+    }
+
+
     BeginDrawing();
 
     ClearBackground(BLACK);
     switch (go.state) {
+        case MENU: { render_menu(); } break;
         case PUZZLE_FUN: { render_puzzle(go.puzzle_fun, go.pstate, go.atlas, go.player_atlas, go.puzzle_shader); } break;
         case PUZZLE_FUN_WIN: { render_puzzle_win(go.puzzle_fun, &go.pstate, go.atlas, go.player_atlas, go.puzzle_shader); } break;
         case PUZZLE_TRAIN_WIN: { render_puzzle_win(go.puzzle_train, &go.pstate, go.atlas, go.player_atlas, go.puzzle_shader); } break;
         case PUZZLE_TRAIN: { render_puzzle(go.puzzle_train, go.pstate, go.atlas, go.player_atlas, go.puzzle_shader); } break;
-        case PUZZLE_BOSS_WIN: { render_puzzle_win(go.puzzle_boss, &go.pstate, go.atlas, go.player_atlas, go.puzzle_shader); } break;
+        case PUZZLE_BOSS_WIN: { render_victory(go.world, go.pstate, go.atlas, go.player_atlas); } break;
         case PUZZLE_BOSS: { render_puzzle(go.puzzle_boss, go.pstate, go.atlas, go.player_atlas, go.puzzle_shader); } break;
         case WORLD: { render_world(go.world, go.pstate, go.world_atlas, go.player_atlas); } break;
         case SLEEP: { render_sleep(go.world, go.sleep, go.pstate, go.world_atlas, go.player_atlas); } break;
@@ -633,6 +647,122 @@ GameState update_sleep(World **w, Sleep *s, PlayerState *pstate, GameState gs)
     return SLEEP;
 }
 
+void render_menu(void)
+{
+    float width = GetScreenWidth();
+    float height = GetScreenHeight();
+
+    char *msg = "Resume / play [enter]";
+    Vector2 sz = MeasureTextEx(GetFontDefault(), msg, FONT_SIZE_BIG, 4.f);
+    Vector2 pos = {
+        .x = width * 0.2f,
+        .y = height * 0.2f,
+    };
+    DrawTextEx(GetFontDefault(), msg, pos, FONT_SIZE_BIG, 4.f, WHITE);
+
+    char *controls = "Controls:";
+    Vector2 cpos = {
+        .x = pos.x,
+        .y = pos.y + sz.y * LINE_SPACE * LINE_SPACE,
+    };
+    DrawTextEx(GetFontDefault(), controls, cpos, FONT_SIZE_BIG, 4.f, WHITE);
+
+    char *interact = "interact        [enter]";
+    Vector2 interact_sz = MeasureTextEx(GetFontDefault(), interact, FONT_SIZE_MID, 4.f);
+    Vector2 interact_pos = {
+        .x = pos.x,
+        .y = cpos.y + sz.y * LINE_SPACE,
+    };
+    DrawTextEx(GetFontDefault(), interact, interact_pos, FONT_SIZE_MID, 4.f, WHITE);
+
+    char *movement = "movement       [w|a|s|d]";
+    Vector2 movement_pos = {
+        .x = pos.x,
+        .y = interact_pos.y + interact_sz.y * LINE_SPACE,
+    };
+    DrawTextEx(GetFontDefault(), movement, movement_pos, FONT_SIZE_MID, 4.f, WHITE);
+
+#ifdef PLATFORM_WEB
+    char *modifier = "move modifier  [u]";
+#else
+    char *modifier = "move modifier  [shift|u]";
+#endif
+    Vector2 modifier_pos = {
+
+        .x = pos.x,
+        .y = movement_pos.y + interact_sz.y * LINE_SPACE,
+    };
+    DrawTextEx(GetFontDefault(), modifier, modifier_pos, FONT_SIZE_MID, 4.f, WHITE);
+
+    char *mirror = "puzzle: mirror [left mouse]";
+    Vector2 mirror_pos = {
+        .x = pos.x,
+        .y = modifier_pos.y + interact_sz.y * LINE_SPACE,
+    };
+    DrawTextEx(GetFontDefault(), mirror, mirror_pos, FONT_SIZE_MID, 4.f, WHITE);
+
+#ifdef PLATFORM_WEB
+    char *menu = "open menu      [q]";
+#else
+    char *menu = "open menu      [escape|q]";
+#endif
+    Vector2 menu_pos = {
+        .x = pos.x,
+        .y = mirror_pos.y + interact_sz.y * LINE_SPACE,
+    };
+    DrawTextEx(GetFontDefault(), menu, menu_pos, FONT_SIZE_MID, 4.f, WHITE);
+
+}
+
+GameState update_menu(void)
+{
+    if (IsKeyPressed(KEY_ENTER)) {
+        return WORLD;
+    }
+    return MENU;
+}
+
+
+GameState update_victory()
+{
+    if (IsKeyPressed(KEY_ENTER)) {
+        return MENU;
+    }
+    return PUZZLE_BOSS_WIN;
+}
+
+void render_victory(World *w, PlayerState pstate, Texture2D atlas, Texture2D player_atlas)
+{
+    render_hud_lhs(pstate, w->wpos.x + w->wdim.x, atlas);
+    Color bg = BLACK;
+    bg.a = 128;
+
+    char *msg = "You've made it back in the world!";
+    Vector2 sz = MeasureTextEx(GetFontDefault(), msg, FONT_SIZE_BIG, 4.f);
+    Vector2 pos = {
+        .x = (GetScreenWidth() - sz.x) / 2.f,
+        .y = 0.4f * (GetScreenHeight()),
+    };
+    DrawTextEx(GetFontDefault(), msg, pos, FONT_SIZE_BIG, 4.f, WHITE);
+
+
+    char *instructions = "Thanks for playing <3";
+    Vector2 isz = MeasureTextEx(GetFontDefault(), instructions, FONT_SIZE_MID, 4.f);
+    Vector2 ipos = {
+        .x = pos.x,
+        .y = 0.6f * GetScreenHeight(),
+    };
+    DrawTextEx(GetFontDefault(), instructions, ipos, FONT_SIZE_MID, 4.f, WHITE);
+
+    char *author = "- elicatza";
+    Vector2 apos = {
+        .x = pos.x,
+        .y = ipos.y + isz.y * 1.35f,
+    };
+    DrawTextEx(GetFontDefault(), author, apos, FONT_SIZE_MID, 4.f, WHITE);
+}
+
+
 void render_sleep(World *w, Sleep s, PlayerState pstate, Texture2D atlas, Texture2D player_atlas)
 {
     (void) s;
@@ -668,7 +798,7 @@ void render_sleep(World *w, Sleep s, PlayerState pstate, Texture2D atlas, Textur
     DrawTextEx(GetFontDefault(), time, tpos, w->wdim.x / 10.f, 4.f, WHITE);
     
 
-    char *instructions = "[enter]";
+    char *instructions = "RANDOM_MESSAGE";
     Vector2 isz = MeasureTextEx(GetFontDefault(), instructions, w->wdim.y / 20.f, 2.f);
     Vector2 ipos = {
         .x = w->wpos.x + 0.5f * (w->wdim.x  - isz.x),

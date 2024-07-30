@@ -30,6 +30,11 @@ typedef uint8_t u8;
 #define PENALTY_ENERGY 0.025f
 #define SLEEP_SPEED 0.04f
 
+#define FONT_SIZE_BIG (GetScreenWidth() / 18.f)
+#define FONT_SIZE_MID (GetScreenWidth() / 30.f)
+#define FONT_SIZE_SMALL (GetScreenWidth() / 45.f)
+#define LINE_SPACE 1.35f
+
 typedef enum {
     PUZZLE_FUN,
     PUZZLE_FUN_WIN,
@@ -38,7 +43,7 @@ typedef enum {
     PUZZLE_BOSS,
     PUZZLE_BOSS_WIN,
     WORLD,
-    // MENU, TODO
+    MENU,
     SLEEP,
     FAINT,
 } GameState;

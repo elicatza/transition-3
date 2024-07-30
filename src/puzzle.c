@@ -407,9 +407,6 @@ bool puzzle_is_finished(Puzzle *p)
 
 GameState update_puzzle(Puzzle *p, PlayerState *pstate, GameState default_rv)
 {
-    if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_Q)) {
-        return WORLD;
-    }
     Direction dir;
     __compar_fn_t cmp_fn = NULL;
 

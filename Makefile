@@ -1,4 +1,4 @@
-PROGRAMNAME := demo
+PROGRAMNAME := transition-3
 CFLAGS := -Wall -Wextra -std=c99 -g
 INCLUDES := -I./vendor/include
 WEB_CFLAGS := -Wall -Wextra -Os
@@ -6,6 +6,11 @@ LIBS := $(INCLUDES) -L./vendor/lib -l:libraylib.so -lm
 WEB_LIBS := $(INCLUDES) -L./vendor/lib/ -lraylib -lm
 
 all: ./build/$(PROGRAMNAME).html ./build/$(PROGRAMNAME)
+
+itch: ./build/$(PROGRAMNAME).html
+	cp $^ build/index.html
+	zip build/transition-3.zip build/index.html build/transition-3.js build/transition-3.wasm
+
 
 ./build/$(PROGRAMNAME).html: ./src/main.c ./build/puzzle_web.o ./build/core_web.o
 	mkdir -p $(shell dirname $@)
