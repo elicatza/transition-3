@@ -121,7 +121,6 @@ void render_hud_lhs(PlayerState pstate, float offx, Texture2D atlas)
 
 void render_player(Vector2 vs_pos, Vector2 dim, PlayerState pstate, Texture2D player_atlas, Color color)
 {
-
     Rectangle dest = {
         .x = vs_pos.x,
         .y = vs_pos.y,
@@ -196,3 +195,44 @@ bool should_faint(PlayerState pstate)
     }
     return false;
 }
+
+int new_face_id(int face_id, Direction dir)
+{
+    switch (dir) {
+        case UP: { switch (face_id) {
+            case 0: { return 2; } break;
+            case 1: { return 2; } break;
+            case 2: { return 5; } break;
+            case 3: { return 2; } break;
+            case 4: { return 0; } break;
+            case 5: { return 4; } break;
+        } } break;
+        case DOWN: { switch (face_id) {
+            case 0: { return 4; } break;
+            case 1: { return 4; } break;
+            case 2: { return 0; } break;
+            case 3: { return 4; } break;
+            case 4: { return 5; } break;
+            case 5: { return 2; } break;
+        } } break;
+        case LEFT: { switch (face_id) {
+            case 0: { return 1; } break;
+            case 1: { return 5; } break;
+            case 2: { return 1; } break;
+            case 3: { return 0; } break;
+            case 4: { return 1; } break;
+            case 5: { return 3; } break;
+        } } break;
+        case RIGHT: { switch (face_id) {
+            case 0: { return 3; } break;
+            case 1: { return 0; } break;
+            case 2: { return 3; } break;
+            case 3: { return 5; } break;
+            case 4: { return 3; } break;
+            case 5: { return 1; } break;
+        } } break;
+        case NONE: { ASSERT(0, "Verify direction before calling"); } break;
+    }
+    ASSERT(0, "Unreachable");
+}
+

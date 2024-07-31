@@ -816,47 +816,19 @@ void render_sleep(World *w, Sleep s, PlayerState pstate, Texture2D atlas, Textur
 GameState update_world(World *w, PlayerState *pstate)
 {
     Player new_p = w->player;
-    int new_face_id;
+    Direction dir = NONE;
     if ((IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) && !pstate->is_sleeping) {
-        switch (pstate->face_id) {
-            case 0: { new_face_id = 2; } break;
-            case 1: { new_face_id = 2; } break;
-            case 2: { new_face_id = 5; } break;
-            case 3: { new_face_id = 2; } break;
-            case 4: { new_face_id = 0; } break;
-            case 5: { new_face_id = 4; } break;
-        }
         new_p.pos.y += -1;
+        dir = UP;
     } else if ((IsKeyPressed(KEY_A) || IsKeyPressed(KEY_LEFT)) && !pstate->is_sleeping) {
-            switch (pstate->face_id) {
-                case 0: { new_face_id = 1; } break;
-                case 1: { new_face_id = 5; } break;
-                case 2: { new_face_id = 1; } break;
-                case 3: { new_face_id = 0; } break;
-                case 4: { new_face_id = 1; } break;
-                case 5: { new_face_id = 3; } break;
-            }
         new_p.pos.x += -1;
+        dir = LEFT;
     } else if ((IsKeyPressed(KEY_S) || IsKeyPressed(KEY_DOWN)) && !pstate->is_sleeping) {
-        switch (pstate->face_id) {
-            case 0: { new_face_id = 4; } break;
-            case 1: { new_face_id = 4; } break;
-            case 2: { new_face_id = 0; } break;
-            case 3: { new_face_id = 4; } break;
-            case 4: { new_face_id = 5; } break;
-            case 5: { new_face_id = 2; } break;
-        }
         new_p.pos.y += 1;
+        dir = DOWN;
     } else if ((IsKeyPressed(KEY_D) || IsKeyPressed(KEY_RIGHT)) && !pstate->is_sleeping) {
-            switch (pstate->face_id) {
-                case 0: { new_face_id = 3; } break;
-                case 1: { new_face_id = 0; } break;
-                case 2: { new_face_id = 3; } break;
-                case 3: { new_face_id = 5; } break;
-                case 4: { new_face_id = 3; } break;
-                case 5: { new_face_id = 1; } break;
-            }
         new_p.pos.x += 1;
+        dir = RIGHT;
     }
 
     if (memcmp(&new_p, &w->player.pos, sizeof new_p) != 0) {
@@ -867,7 +839,7 @@ GameState update_world(World *w, PlayerState *pstate)
         }
         if (is_valid_wspos(w, new_p.pos, new_p.height)) {
             if (penalty) {
-                pstate->face_id = new_face_id;
+                pstate->face_id = new_face_id(pstate->face_id, dir);
                 INFO("Starting animation");
                 apply_energy_loss(pstate);
                 if (should_faint(*pstate)) return FAINT;

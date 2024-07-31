@@ -230,16 +230,6 @@ typedef struct Puzzle {
     int clicked_button;  /* id if button is clicked. Else -1 */
     int hover_button;  /* id of hovered button. Else -1 */
 } Puzzle;
-/**
- * Can be cast from keys
- */
-typedef enum {
-    NONE = 0,
-    UP = KEY_W,
-    DOWN = KEY_S,
-    LEFT = KEY_A,
-    RIGHT = KEY_D,
-} Direction;
 
 // Note: not defined in stdlib when building for web
 #ifdef PLATFORM_WEB
@@ -533,6 +523,7 @@ GameState update_puzzle(Puzzle *p, PlayerState *pstate, GameState default_rv)
             if (is_valid_pos(p, new_player)) {
                 if (found_valid == false && penatlty) found_valid = true;
                 if (penatlty) {
+                    pstate->face_id = new_face_id(pstate->face_id, dir);
                     if (pstate->energy < 0) {
                         pstate->energy = 0.f;
                         return FAINT;
@@ -807,6 +798,19 @@ void render_puzzle(Puzzle *p, PlayerState pstate, Texture2D atlas, Texture2D pla
     }
     // EndShaderMode();
 
+
+    render_puzzle_grid(p);
+
+    render_height_lines(p);
+
+    if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT) || IsKeyDown(KEY_U)) {
+        DrawRectangleLinesEx(p->rec, 3.f, RED);
+    } else {
+        DrawRectangleLinesEx(p->rec, 3.f, GREEN);
+    }
+
+    EndShaderMode();
+
     // Draws players
     for (i = 0; i < case_len(p->player_case); ++i) {
         Color color = WHITE;
@@ -825,18 +829,6 @@ void render_puzzle(Puzzle *p, PlayerState pstate, Texture2D atlas, Texture2D pla
             case_len(p->player_case) = i;
         }
     }
-
-    render_puzzle_grid(p);
-
-    render_height_lines(p);
-
-    if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT) || IsKeyDown(KEY_U)) {
-        DrawRectangleLinesEx(p->rec, 3.f, RED);
-    } else {
-        DrawRectangleLinesEx(p->rec, 3.f, GREEN);
-    }
-
-    EndShaderMode();
     if (p->clicked_button != -1) {
         Button sel_ws = p->button_case[p->clicked_button];
         if (CheckCollisionPointRec(GetMousePosition(), p->rec)) {

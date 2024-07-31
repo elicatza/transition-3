@@ -50,6 +50,17 @@ typedef enum {
     FAINT,
 } GameState;
 
+/**
+ * Can be cast from keys
+ */
+typedef enum {
+    NONE = 0,
+    UP = KEY_W,
+    DOWN = KEY_S,
+    LEFT = KEY_A,
+    RIGHT = KEY_D,
+} Direction;
+
 typedef struct {
     float pain;
     float pain_max;
@@ -79,6 +90,7 @@ void update_pstate(PlayerState *pstate);
 void apply_energy_loss(PlayerState *pstate);
 void apply_pain(PlayerState *pstate);
 bool should_faint(PlayerState pstate);
+int new_face_id(int face_id, Direction dir);
 
 #ifdef TEST
 #define TEST_ASSERT(statement) test_assert(statement, #statement)

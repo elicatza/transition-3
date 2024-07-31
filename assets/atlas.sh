@@ -26,4 +26,5 @@ magick \
 
 magick \
     \( ./assets/sprites/player_pain.png ./assets/sprites/player_fatigue.png ./assets/sprites/player_sad.png ./assets/sprites/player_main.png ./assets/sprites/player_happy.png +append \) \
+    \( ./assets/sprites/player_pink.png ./assets/sprites/player_blue.png +append \) \
     -append ./assets/player_atlas.png
