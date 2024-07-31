@@ -314,7 +314,7 @@ int main(void)
     go.player_atlas = LoadTextureFromImage(player_atlas);
     go.world = load_world(0, 4);
     go.state = WORLD;
-    go.pstate.energy = 0.3f;
+    go.pstate.energy = 0.3f;  // orig 0.3f
     go.pstate.energy_max = 0.3f;
     go.pstate.energy_lim = 1.0f;
     go.pstate.pain = 0.2f;
@@ -322,7 +322,7 @@ int main(void)
     go.pstate.time = 0.3334; /* 08:00 */
     go.pstate.did_faint = false;
     go.pstate.face_id = 0;
-    go.pstate.light = 0.25f;
+    go.pstate.light = 0.25f;  // orig 0.25f
     go.puzzle_fun_id = 0;
     go.puzzle_train_id = 0;
     go.puzzle_fun = load_puzzle(puzzle_fun_array[go.puzzle_fun_id]);

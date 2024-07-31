@@ -26,7 +26,7 @@ GameState update_puzzle_win(Puzzle *p, GameState default_rv);
 #define G 0b1000
 #endif
 
-extern unsigned char puzzle_fun_array[10][103];
+extern unsigned char puzzle_fun_array[10][19 * 19 + 3];
 extern unsigned char puzzle_train_array[20][25 + 3];
 extern unsigned char puzzle_boss[20 * 20 + 3];
 
