@@ -19,15 +19,15 @@ void render_puzzle(Puzzle *p, PlayerState pstate, Texture2D atlas, Texture2D pla
 void free_puzzle(Puzzle *p);
 
 void render_puzzle_win(Puzzle *p, PlayerState *pstate, Texture2D atlas, Texture2D player_atlas, Shader fs);
-GameState update_puzzle_win(Puzzle *p, GameState default_rv);
+GameState update_puzzle_win(Puzzle *p, PlayerState *pstate, GameState default_rv);
 
 #ifndef NO_TEMPLATE
 #define P 0b0100
 #define G 0b1000
 #endif
 
-extern unsigned char puzzle_fun_array[10][19 * 19 + 3];
-extern unsigned char puzzle_train_array[20][25 + 3];
+extern unsigned char puzzle_fun_array[FUN_PUZZLES][19 * 19 + 3];
+extern unsigned char puzzle_train_array[TRAIN_PUZZLES][25 + 3];
 extern unsigned char puzzle_boss[20 * 20 + 3];
 
 

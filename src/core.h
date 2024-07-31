@@ -26,6 +26,17 @@ typedef uint8_t u8;
 #define C_BLUE CLITERAL(Color){ 0x55, 0xcd, 0xfc, 0xff }
 #define C_PINK CLITERAL(Color){ 0xf7, 0xa8, 0xb8, 0xff }
 
+#define FUN_PUZZLES 7
+#define TRAIN_PUZZLES 20
+
+#define LIGHT_INIT 0.10f
+#define LIGHT_MAX 1.0f
+#define LIGHT_INC ((LIGHT_MAX - LIGHT_INIT) * (1.f / FUN_PUZZLES))
+
+#define ENERGY_MAX_INIT 0.3f
+#define ENERGY_MAX_LIM 1.f
+#define ENERGY_MAX_INC ((ENERGY_MAX_LIM - ENERGY_MAX_INIT) * (1.f / TRAIN_PUZZLES))
+
 #define PENALTY_ENERGY_TIME 0.02f
 #define PENALTY_PAIN_TIME 0.02f
 #define PENALTY_PAIN 0.05f

@@ -314,16 +314,16 @@ int main(void)
     go.player_atlas = LoadTextureFromImage(player_atlas);
     go.world = load_world(0, 4);
     go.state = WORLD;
-    go.pstate.energy = 0.3f;  // orig 0.3f
-    go.pstate.energy_max = 0.3f;
-    go.pstate.energy_lim = 1.0f;
+    go.pstate.energy = ENERGY_MAX_INIT;  // orig 0.3f
+    go.pstate.energy_max = ENERGY_MAX_INIT;
+    go.pstate.energy_lim = ENERGY_MAX_LIM;
     go.pstate.pain = 0.2f;
     go.pstate.pain_max = 1.f;
     go.pstate.time = 0.3334; /* 08:00 */
     go.pstate.did_faint = false;
     go.pstate.face_id = 0;
     go.pstate.is_sleeping = 0;
-    go.pstate.light = 0.25f;  // orig 0.25f
+    go.pstate.light = LIGHT_INIT;  // orig 0.25f
     go.puzzle_fun_id = 0;
     go.puzzle_train_id = 0;
     go.puzzle_fun = load_puzzle(puzzle_fun_array[go.puzzle_fun_id]);
@@ -360,7 +360,7 @@ void loop(void)
         case MENU: { go.state = update_menu(); } break;
         case PUZZLE_FUN: { go.state = update_puzzle(go.puzzle_fun, &go.pstate, PUZZLE_FUN); } break;
         case PUZZLE_FUN_WIN: {
-            go.state = update_puzzle_win(go.puzzle_fun, PUZZLE_FUN_WIN);
+            go.state = update_puzzle_win(go.puzzle_fun, &go.pstate, PUZZLE_FUN_WIN);
             if (go.state == WORLD) {
                 go.puzzle_fun_id += 1;
                 if (go.puzzle_fun_id >= sizeof puzzle_fun_array / sizeof *puzzle_fun_array) {
@@ -375,7 +375,7 @@ void loop(void)
         } break;
         case PUZZLE_TRAIN: { go.state = update_puzzle(go.puzzle_train, &go.pstate, PUZZLE_TRAIN); } break;
         case PUZZLE_TRAIN_WIN: {
-            go.state = update_puzzle_win(go.puzzle_train, PUZZLE_TRAIN_WIN);
+            go.state = update_puzzle_win(go.puzzle_train, &go.pstate, PUZZLE_TRAIN_WIN);
             if (go.state == WORLD) {
                 go.puzzle_train_id += 1;
                 if (go.puzzle_train_id >= sizeof puzzle_train_array / sizeof *puzzle_train_array) {
@@ -634,7 +634,9 @@ GameState update_sleep(World **w, Sleep *s, PlayerState *pstate, GameState gs)
         spawn_player(*w, 4);
         *s = init_faint(*pstate);
         pstate->did_faint = true;
-        pstate->light -= 0.05f;
+        if (pstate->light > 0.05) {
+            pstate->light -= 0.05f;
+        }
         return SLEEP;
     }
 
@@ -804,7 +806,7 @@ void render_sleep(World *w, Sleep s, PlayerState pstate, Texture2D atlas, Textur
     DrawTextEx(GetFontDefault(), time, tpos, w->wdim.x / 10.f, 4.f, WHITE);
     
 
-    char *instructions = "RANDOM_MESSAGE";
+    char *instructions = pstate.did_faint ? "Darkness" : "Good";
     Vector2 isz = MeasureTextEx(GetFontDefault(), instructions, w->wdim.y / 20.f, 2.f);
     Vector2 ipos = {
         .x = w->wpos.x + 0.5f * (w->wdim.x  - isz.x),
