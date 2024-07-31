@@ -2,13 +2,15 @@
 Following file came with emscripten 3.1.61-1 as packaged by Sven-Hendrik Haase <svenstaro@archlinux.org>
 for the arch repositories. Filename `/usr/lib/emscripten/src/shell_minimal.html`.
   - elicatza
+
+I've made some adjustments to the source code
 -->
 <!doctype html>
 <html lang="en-us">
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Emscripten-Generated Code</title>
+    <title>Transition #3</title>
     <style>
       .emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
       textarea.emscripten { font-family: monospace; width: 80%; }
@@ -52,7 +54,6 @@ for the arch repositories. Filename `/usr/lib/emscripten/src/shell_minimal.html`
     </style>
   </head>
   <body>
-    <hr/>
     <figure style="overflow:visible;" id="spinner"><div class="spinner"></div><center style="margin-top:0.5em"><strong>emscripten</strong></center></figure>
     <div class="emscripten" id="status">Downloading...</div>
     <div class="emscripten">
@@ -64,15 +65,12 @@ for the arch repositories. Filename `/usr/lib/emscripten/src/shell_minimal.html`
     <hr/>
     <div class="emscripten">
       <input type="checkbox" id="resize" checked>Resize canvas
-      <input type="checkbox" id="pointerLock" checked>Lock/hide mouse pointer
+      <input type="checkbox" id="pointerLock">Lock/hide mouse pointer
       &nbsp;&nbsp;&nbsp;
       <input type="button" value="Fullscreen" onclick="Module.requestFullscreen(document.getElementById('pointerLock').checked, 
                                                                                 document.getElementById('resize').checked)">
     </div>
     
-    <hr/>
-    <textarea class="emscripten" id="output" rows="8"></textarea>
-    <hr>
     <script type='text/javascript'>
       var statusElement = document.getElementById('status');
       var progressElement = document.getElementById('progress');

@@ -283,7 +283,7 @@ int main(void)
     int width = WIDTH;
     int height = HEIGHT;
     SetConfigFlags(/* FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE | */ FLAG_MSAA_4X_HINT);
-    InitWindow(width, height, "demo");
+    InitWindow(width, height, "Transition #3");
 
     Image atlas_img = {
         .data = ATLAS_DATA,
@@ -313,7 +313,7 @@ int main(void)
     go.world_atlas = LoadTextureFromImage(world_atlas);
     go.player_atlas = LoadTextureFromImage(player_atlas);
     go.world = load_world(0, 4);
-    go.state = WORLD;
+    go.state = MENU;
     go.pstate.energy = ENERGY_MAX_INIT;  // orig 0.3f
     go.pstate.energy_max = ENERGY_MAX_INIT;
     go.pstate.energy_lim = ENERGY_MAX_LIM;
