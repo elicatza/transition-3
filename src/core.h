@@ -61,6 +61,7 @@ typedef struct {
     float energy_lim;
     float brightness;  /* 0..1 */
     bool did_faint;
+    bool is_sleeping;
     int face_id;
 
     Color ani_color;

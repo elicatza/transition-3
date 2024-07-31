@@ -322,6 +322,7 @@ int main(void)
     go.pstate.time = 0.3334; /* 08:00 */
     go.pstate.did_faint = false;
     go.pstate.face_id = 0;
+    go.pstate.is_sleeping = 0;
     go.pstate.light = 0.25f;  // orig 0.25f
     go.puzzle_fun_id = 0;
     go.puzzle_train_id = 0;
@@ -556,22 +557,23 @@ void apply_lighting(World *w, PlayerState pstate)
     }
 }
 
-Sleep init_sleep(PlayerState pstate)
+Sleep init_sleep(PlayerState *pstate)
 {
-    if (pstate.energy < 0.f) pstate.energy = 0.0f;
-    if (pstate.energy >= pstate.energy_max) pstate.energy = pstate.energy_max - 0.001;
-    float stime = (15.f / (1 + powf(M_E, -2 * (1.f - (pstate.energy / pstate.energy_max)))) - 5.f) / 24.f;
+    if (pstate->energy < 0.f) pstate->energy = 0.0f;
+    if (pstate->energy >= pstate->energy_max) pstate->energy = pstate->energy_max - 0.001;
+    float stime = (15.f / (1 + powf(M_E, -2 * (1.f - (pstate->energy / pstate->energy_max)))) - 5.f) / 24.f;
     float stime_max = (15.f / (1 + powf(M_E, -2)) - 5.f) / 24.f;
+    pstate->is_sleeping = true;
     INFO("Hours: %.2f", stime * 24.f);
     INFO("Percent: %.2f", (stime / stime_max) * 100.f);
 
     Sleep rv;
-    rv.init_time = pstate.time;
-    rv.end_time = pstate.time + stime;
-    rv.init_energy = pstate.energy;
-    rv.end_energy = MIN(pstate.energy * 0.3 + pstate.energy_max * (stime / stime_max) * 0.8f, pstate.energy_max); /* TODO Factor in lightness (0.8f) */
-    rv.init_pain = pstate.pain;
-    rv.end_pain = pstate.pain * 0.333f;
+    rv.init_time = pstate->time;
+    rv.end_time = pstate->time + stime;
+    rv.init_energy = pstate->energy;
+    rv.end_energy = MIN(pstate->energy * 0.3 + pstate->energy_max * (stime / stime_max) * 0.8f, pstate->energy_max); /* TODO Factor in lightness (0.8f) */
+    rv.init_pain = pstate->pain;
+    rv.end_pain = pstate->pain * 0.333f;
     return rv;
 }
 
@@ -641,6 +643,7 @@ GameState update_sleep(World **w, Sleep *s, PlayerState *pstate, GameState gs)
     if (pstate->time >= s->end_time) {
         pstate->energy = s->end_energy;
         pstate->did_faint = false;
+        pstate->is_sleeping = false;
         // pstate->time = cur_time;
         return WORLD;
     }
@@ -812,12 +815,9 @@ void render_sleep(World *w, Sleep s, PlayerState pstate, Texture2D atlas, Textur
 
 GameState update_world(World *w, PlayerState *pstate)
 {
-    if (IsKeyPressed(KEY_T)) {
-        pstate->time += 0.002f;
-    }
     Player new_p = w->player;
     int new_face_id;
-    if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) {
+    if ((IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) && !pstate->is_sleeping) {
         switch (pstate->face_id) {
             case 0: { new_face_id = 2; } break;
             case 1: { new_face_id = 2; } break;
@@ -827,7 +827,7 @@ GameState update_world(World *w, PlayerState *pstate)
             case 5: { new_face_id = 4; } break;
         }
         new_p.pos.y += -1;
-    } else if (IsKeyPressed(KEY_A) || IsKeyPressed(KEY_LEFT)) {
+    } else if ((IsKeyPressed(KEY_A) || IsKeyPressed(KEY_LEFT)) && !pstate->is_sleeping) {
             switch (pstate->face_id) {
                 case 0: { new_face_id = 1; } break;
                 case 1: { new_face_id = 5; } break;
@@ -837,7 +837,7 @@ GameState update_world(World *w, PlayerState *pstate)
                 case 5: { new_face_id = 3; } break;
             }
         new_p.pos.x += -1;
-    } else if (IsKeyPressed(KEY_S) || IsKeyPressed(KEY_DOWN)) {
+    } else if ((IsKeyPressed(KEY_S) || IsKeyPressed(KEY_DOWN)) && !pstate->is_sleeping) {
         switch (pstate->face_id) {
             case 0: { new_face_id = 4; } break;
             case 1: { new_face_id = 4; } break;
@@ -847,7 +847,7 @@ GameState update_world(World *w, PlayerState *pstate)
             case 5: { new_face_id = 2; } break;
         }
         new_p.pos.y += 1;
-    } else if (IsKeyPressed(KEY_D) || IsKeyPressed(KEY_RIGHT)) {
+    } else if ((IsKeyPressed(KEY_D) || IsKeyPressed(KEY_RIGHT)) && !pstate->is_sleeping) {
             switch (pstate->face_id) {
                 case 0: { new_face_id = 3; } break;
                 case 1: { new_face_id = 0; } break;
@@ -861,7 +861,7 @@ GameState update_world(World *w, PlayerState *pstate)
 
     if (memcmp(&new_p, &w->player.pos, sizeof new_p) != 0) {
         bool penalty = false;
-        if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT) || IsKeyDown(KEY_U)) {
+        if ((IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT) || IsKeyDown(KEY_U)) && !pstate->is_sleeping) {
             penalty = true;
             new_p.height += 1;
         }
@@ -877,7 +877,7 @@ GameState update_world(World *w, PlayerState *pstate)
         }
     }
 
-    if (IsKeyPressed(KEY_I) || IsKeyPressed(KEY_ENTER)) {
+    if ((IsKeyPressed(KEY_I) || IsKeyPressed(KEY_ENTER)) && !pstate->is_sleeping) {
         // Interact
         Cell cell = cell_at_pos(w, w->player.pos);
         switch ((enum PhysicalType) MASK_PHYSICAL_T(cell.info)) {
@@ -909,11 +909,11 @@ GameState update_world(World *w, PlayerState *pstate)
                 return PUZZLE_BOSS;
             } break;
             case PBED: {
-                go.sleep = init_sleep(*pstate);
+                go.sleep = init_sleep(pstate);
                 return SLEEP;
             } break;
             case PBED_END: {
-                go.sleep = init_sleep(*pstate);
+                go.sleep = init_sleep(pstate);
                 return SLEEP;
             } break;
             // default: {
