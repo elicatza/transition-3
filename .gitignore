@@ -9,4 +9,5 @@ assets/*
 !assets/atlas.h
 !assets/world_atlas.h
 !assets/player_atlas.h
+!assets/screenshot_*.png
 .ccls-cache

@@ -5,6 +5,13 @@ WEB_CFLAGS := -Wall -Wextra -Os
 LIBS := $(INCLUDES) -L./vendor/lib -l:libraylib.so -lm
 WEB_LIBS := $(INCLUDES) -L./vendor/lib/ -lraylib -lm
 
+BUILD ?= RELEASE
+
+ifeq ($(BUILD), DEBUG)
+	CFLAGS := $(CFLAGS) -DDEBUG
+endif
+
+
 all: ./build/$(PROGRAMNAME).html ./build/$(PROGRAMNAME)
 
 itch: ./build/$(PROGRAMNAME).html
@@ -13,6 +20,9 @@ itch: ./build/$(PROGRAMNAME).html
 	cd ./design_document && \
 		htlatex ./main.tex
 
+gdd:
+	cd ./design_document && \
+		pdflatex main.tex
 
 ./build/$(PROGRAMNAME).html: ./src/main.c ./build/puzzle_web.o ./build/core_web.o
 	mkdir -p $(shell dirname $@)

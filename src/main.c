@@ -1,6 +1,6 @@
 #include <raylib.h>
+#define _GNU_SOURCE
 #include <stdio.h>
-#define __USE_MISC
 #include <math.h>
 
 #include "core.h"
@@ -184,6 +184,7 @@ typedef struct Sleep {
 } Sleep;
 
 typedef struct {
+    size_t frame;
     Texture2D atlas;
     Texture2D world_atlas;
     Texture2D player_atlas;
@@ -309,6 +310,7 @@ int main(void)
         .mipmaps = 1,
     };
 
+    go.frame = 0;
     go.atlas = LoadTextureFromImage(atlas_img);
     go.world_atlas = LoadTextureFromImage(world_atlas);
     go.player_atlas = LoadTextureFromImage(player_atlas);
@@ -356,6 +358,7 @@ int main(void)
 
 void loop(void)
 {
+    go.frame += 1;
     switch (go.state) {
         case MENU: { go.state = update_menu(); } break;
         case PUZZLE_FUN: { go.state = update_puzzle(go.puzzle_fun, &go.pstate, PUZZLE_FUN); } break;
@@ -398,6 +401,16 @@ void loop(void)
     if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_Q)) {
         go.state = MENU;
     }
+
+#ifdef DEBUG
+    if (IsKeyPressed(KEY_C)) {
+        char *screenshot_buf;
+        asprintf(&screenshot_buf, "screenshot_%zu.png", go.frame);
+        TakeScreenshot(screenshot_buf);
+        free(screenshot_buf);
+        INFO("Screen capture `%s` taken", screenshot_buf);
+    }
+#endif
 
 
     BeginDrawing();

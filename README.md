@@ -1,11 +1,22 @@
-# Game jam
+# Transition #3
+This code was written as a submission to the Pirate Software game jam.
+You can find / play the game on [https://elicatza.itch.io/transition-3](itch.io).
 
-## Color palette
-oklch(79.92% 0.125 227.49) blue
-oklch(81.22% 0.095 6.11)   pink
-oklch(80.57% 0.110 116)    blend
+![Bedroom](./assets/screenshot_room.png)
+![Livingroom](./assets/screenshot_main.png)
+![Puzzle](./assets/screenshot_puzzle.png)
 
-#55cdfc
-#f7a8b8
-#d4e18c
-#ffffff
+## Game design document
+
+The game design document was written in latex. Building it requires pdflatex
+and make.
+
+```bash
+make gdd
+```
+
+## Build
+I don't want to include raylib in this repo, so you have to build and package
+it yourself. Depending on if you are building for web or linux you'll need to
+use gcc or emscripten. It should not be too difficult. You can do it. However
+you should not do it.
