@@ -10,8 +10,8 @@ all: ./build/$(PROGRAMNAME).html ./build/$(PROGRAMNAME)
 itch: ./build/$(PROGRAMNAME).html
 	cp $^ build/index.html
 	zip build/transition-3.zip build/index.html build/transition-3.js build/transition-3.wasm
-	cd ./design_document
-	htlatex ./main.tex
+	cd ./design_document && \
+		htlatex ./main.tex
 
 
 ./build/$(PROGRAMNAME).html: ./src/main.c ./build/puzzle_web.o ./build/core_web.o
