@@ -1,6 +1,6 @@
 # Transition #3
 This code was written as a submission to the Pirate Software game jam.
-You can find / play the game on [https://elicatza.itch.io/transition-3](itch.io).
+You can find / play the game on [itch.io](https://elicatza.itch.io/transition-3).
 
 ![Bedroom](./assets/screenshot_room.png)
 ![Livingroom](./assets/screenshot_main.png)
